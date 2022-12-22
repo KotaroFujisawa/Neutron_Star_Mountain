@@ -6,7 +6,10 @@ Numerical code for neutron star moutain.
 THe integral form of the Poisson equation 
 $$
 \begin{align}
-ϕ &= -G∫ \frac{\rho(\vec{r}')}{|\vec{r} - \vec{r}'|} dV'  \nonumber \\
-  &= 
+ϕ &= -G∫ \frac{\rho(\vec{r}')}{|\vec{r} - \vec{r}'|} dV'  \nonumber 
 \end{align}
+$$
+
+$$
+ϕ_{ℓm} = -G \int_0^∞ r'^2 f_n(r,r') +dr'
 $$

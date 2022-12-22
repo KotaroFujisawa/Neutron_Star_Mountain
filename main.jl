@@ -5,14 +5,56 @@ using Plots
 using LinearAlgebra
 
 function integ_simpson(S, Nr, dr)
-
     ans = 0.0
-
     for i = 1:2:Nr-2
         ans += dr*(S[i] + 4*S[i+1] + S[i+2]) / 3.0
     end
     return ans
 end
+
+function diff_r(f, dr, Nr)
+    df_dr = zeros(Float64, Nr)
+#    df_dr[1] = (-f[3] + 4*f[2] - 3*f[1]) / (2*dr)
+    df_dr[1] = (f[2] - f[1]) / (dr)
+    for i=2:Nr-1
+        df_dr[i] = (f[i+1] - f[i-1]) / (2*dr)
+    end
+    df_dr[Nr] = (3*f[Nr] - 4*f[Nr-1] + f[Nr-2]) / (2*dr)
+    return df_dr
+end
+
+function diff_r2(f, dr, Nr)
+    df_dr2 = zeros(Float64, Nr)
+    df_dr2[1] = (f[3]- 2*f[2] + f[1]) / dr^2
+    for i=2:Nr-1
+        df_dr2[i] = (f[i+1] - 2*f[i] + f[i-1]) / (dr^2)
+    end
+    df_dr2[Nr] = (f[Nr] - 2*f[Nr-1] + f[Nr-2]) / dr^2
+    return df_dr2
+end
+
+
+function cal_ϕ(r, dr, ρ, Nr, ℓ, m)
+
+    S   = zeros(Float64, Nr)
+    phi = zeros(Float64, Nr)
+    #gravitational potential
+    for i=1:Nr
+        for j=1:Nr
+            if r[i] ≤ r[j]
+               S[j] = 4π*r[i]^(ℓ) * r[j]^(-ℓ+1) * ρ[j]
+            else
+               S[j] = 4π*r[j]^(ℓ+2) * r[i]^(-ℓ-1) * ρ[j]
+            end
+        end
+        phi[i] =-integ_simpson(S, Nr, dr)
+    end
+    if 0 < ℓ
+        phi[1] = 0.0 
+    end
+    return phi
+end
+
 function main()
 
     #number of radial grid
@@ -47,20 +89,11 @@ function main()
     r[Nr] = r_max
     ρ[Nr] = 0.0  
 
+    ϕ = cal_ϕ(r, dr, ρ, Nr, 0, 0)
 
-    S = zeros(Float64, Nr)
-    #gravitational potential
-    for i=1:Nr
-        for j=1:Nr
-            if r[i] ≤ r[j]
-               S[j] = 4π*r[j]*ρ[j]
-            else
-               S[j] = 4π*r[j]^2/r[i]*ρ[j]
-            end
-        end
-        ϕ[i] =-integ_simpson(S, Nr, dr)
-    end
-    plot(r, ϕ, xlims=(0.0,1.0))
+ #   display(ϕ)
+
+#    plot(r, ϕ, xlims=(0.0,1.0))
     K = (-ϕ[1] + ϕ[Nr]) / (Γ / (Γ - 1))
 
     for i=1:Nr
@@ -75,32 +108,41 @@ function main()
     ft = zeros(Float64, Nr)
 
     for i=1:Nr
-        ft[i] = 0.1*( 1 - r[i])^2
+        ft[i] = -2*(1 - r[i])^2
     end
-    Nstep = 10
+    Nstep = 1
+
+    δ = zeros(Float64, Nr)
     for step = 1:Nstep
 
         for i=1:Nr
             δρ[i] = -(ρ[i]*δϕ[i] - ft[i] * r[i]) / cs2[i]
         end
         δρ[Nr] = 0.0
-
+        δϕ = cal_ϕ(r, dr, δρ, Nr, 2, 2) / 2π
         for i=1:Nr
-            δϕ[i] = 0.0
+            δ[i] = δρ[i] * δϕ[i]
         end
-
     end
-    
-    A = [1.0 -2.0; -1.0 1.0]
-    b = [1.0, -2.0]
 
-    plot(r, δρ, xlims=(0.0,1.0))
+    dϕ_dr   = zeros(Float64, Nr)
+    d2ϕ_dr2 = zeros(Float64, Nr)
+
+    dϕ_dr   = diff_r(ϕ, dr, Nr)
+    d2ϕ_dr2 = diff_r(dϕ_dr, dr, Nr)
+
+    
+
+    plot(r, d2ϕ_dr2)
+end
+
+main()
+
+#A = [1.0 -2.0; -1.0 1.0]
+#b = [1.0, -2.0]
 
 #    display(A)
 #    display(b)
 #    c = A \ b
 #    display(A*c)
 #    display(inv(A)*A)
-end
-
-main()
