@@ -52,13 +52,18 @@ function cal_ϕ(r, dr, ρ, Nr, ℓ, m)
     if 0 < ℓ
         phi[1] = 0.0 
     end
-    return phi
+    return phi / (2ℓ+1)
 end
 
 function main()
 
     #number of radial grid
     Nr = 129
+    #number of rdial grid for coordinate
+    Ncr = 12
+    Nco = Nr - Ncr
+
+
     #background matter p = Kρ^Γ 
     ρ  = zeros(Float64, Nr)
     p  = zeros(Float64, Nr)
@@ -73,9 +78,20 @@ function main()
     r_max = 1.0
     dr    = (r_max - r_min) / (Nr-1)
 
+    β = sqrt(2*(2+1))
+
     #perturbations
     δρ = zeros(Float64, Nr)
     δϕ = zeros(Float64, Nr)
+
+    #shear modulas
+    μ  = zeros(Float64, Nr)
+
+    #stress
+    ξr = zeros(Float64, Nr)
+    ξt = zeros(Float64, Nr)
+    T1 = zeros(Float64, Nr)
+    T2 = zeros(Float64, Nr)
 
     #set background star
     #center
@@ -102,38 +118,84 @@ function main()
     end
 ###end make background
 
+###crust###
+
+κ = 1.0e-3
+for i=Nco:Nr
+    μ[i] =κ*ρ[i]
+end
+    
 
 ###perturbations
 
     ft = zeros(Float64, Nr)
-
+    fr = zeros(Float64, Nr)
+### external force ###
     for i=1:Nr
-        ft[i] = -2*(1 - r[i])^2
+        ft[i] = -0.01*(1 - r[i])^2
+        fr[i] =  0.01*ρ[i]*r[i]
     end
-    Nstep = 1
+######################
 
-    δ = zeros(Float64, Nr)
+###iteration fluid star### 
+    Nstep = 30
+
     for step = 1:Nstep
 
         for i=1:Nr
             δρ[i] = -(ρ[i]*δϕ[i] - ft[i] * r[i]) / cs2[i]
         end
         δρ[Nr] = 0.0
-        δϕ = cal_ϕ(r, dr, δρ, Nr, 2, 2) / 2π
-        for i=1:Nr
-            δ[i] = δρ[i] * δϕ[i]
-        end
+        δϕ = cal_ϕ(r, dr, δρ, Nr, 2, 2)
     end
+
+###iteration solid star
 
     dϕ_dr   = zeros(Float64, Nr)
     d2ϕ_dr2 = zeros(Float64, Nr)
 
+    dδϕ_dr  = zeros(Float64, Nr)
+    d2δϕ_dr2= zeros(Float64, Nr)
+
+    dρ_dr   = zeros(Float64, Nr)
+    d2ρ_dr2 = zeros(Float64, Nr)
+    dcs2_dr = zeros(Float64, Nr)
+
+
+    for step = 1:1
+
+        ξr[Nco] = 0.0
+        ξt[Nco] = 0.0
+        T1[Nco] = 0.0
+        T2[Nco] = 0.0 
+        for i=Nco:Nr-1
+            ξr[i+1] = ξr[i] \
+            + dr * (ξr[i]/r[i] - β/(2*r[i])*ξt[i] + 3/(4*μ[i])*T1[i] )
+            ξt[i+1] = ξt[i] \
+            + dr * (-β/r[i]*ξr[i] + ξt[i]/r[i] + β/(μ[i])*T2[i] )
+            T1[i+1] = (
+                T1[i] + dr / (1 + 3*cs2[i]*ρ[i]/(4*μ[i])) * ( 
+                    ρ[i] * dδϕ_dr[i] - fr[i] - ( 
+                        + cs2[i] * (3ρ[i]/r[i] + dρ_dr[i])
+                    )*β/(2r[i])*ξt[i]
+                )
+            )
+        end
+    end
+
     dϕ_dr   = diff_r(ϕ, dr, Nr)
     d2ϕ_dr2 = diff_r(dϕ_dr, dr, Nr)
 
-    
+    dδϕ_dr   = diff_r(δϕ, dr, Nr)
+    d2δϕ_dr2 = diff_r(dδϕ_dr, dr, Nr)
 
-    plot(r, d2ϕ_dr2)
+    lhs0 = zeros(Float64, Nr)
+    lhs2 = zeros(Float64, Nr)
+    for i=2:Nr
+        lhs0[i] = d2ϕ_dr2[i] + 2/r[i]*dϕ_dr[i] 
+        lhs2[i] = d2δϕ_dr2[i] + 2/r[i]*dδϕ_dr[i] - β^2/r[i]^2*δϕ[i]
+    end
+
 end
 
 main()
