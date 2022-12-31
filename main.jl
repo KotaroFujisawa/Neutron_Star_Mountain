@@ -161,23 +161,64 @@ end
     d2ρ_dr2 = zeros(Float64, Nr)
     dcs2_dr = zeros(Float64, Nr)
 
+    dμ_dr   = zeros(Float64, Nr)
 
     for step = 1:1
 
         ξr[Nco] = 0.0
         ξt[Nco] = 0.0
         T1[Nco] = 0.0
-        T2[Nco] = 0.0 
-        for i=Nco:Nr-1
-            ξr[i+1] = ξr[i] \
-            + dr * (ξr[i]/r[i] - β/(2*r[i])*ξt[i] + 3/(4*μ[i])*T1[i] )
-            ξt[i+1] = ξt[i] \
-            + dr * (-β/r[i]*ξr[i] + ξt[i]/r[i] + β/(μ[i])*T2[i] )
+        T2[Nco] = 0.0
+
+        dρ_dr = diff_r(ρ, dr, Nr)
+        d2ρ_dr2 = diff_r(dρ_dr, dr, Nr)
+        dμ_dr   = diff_r(μ, dr, Nr)
+        for i=Nco:Nr-2
+            ξr[i+1] = (
+                ξr[i] 
+                + dr * (ξr[i]/r[i] - β/(2r[i])*ξt[i] + 3/(4μ[i])*T1[i] )
+            )
+            ξt[i+1] = (
+                ξt[i] 
+                + dr * (-β/r[i]*ξr[i] + ξt[i]/r[i] + β/(μ[i])*T2[i] )
+            )
             T1[i+1] = (
-                T1[i] + dr / (1 + 3*cs2[i]*ρ[i]/(4*μ[i])) * ( 
-                    ρ[i] * dδϕ_dr[i] - fr[i] - ( 
-                        + cs2[i] * (3ρ[i]/r[i] + dρ_dr[i])
-                    )*β/(2r[i])*ξt[i]
+                T1[i] + dr / (1 + 3cs2[i]*ρ[i]/(4μ[i])) * 
+                ( 
+                    ρ[i] * dδϕ_dr[i] - fr[i] - 
+                    ( 
+                        + dcs2_dr[i] * (3ρ[i] + r[i]*dρ_dr[i])
+                        + cs2[i] * 
+                        (
+                            3β^2*ρ[i]/(2*r[i]) + dρ_dr[i] 
+                            -r[i]*dρ_dr[i]^2/ρ[i] + d2ρ_dr2[i] 
+                        )
+                    )*β/(2r[i])*ξt[i] +
+                    (
+                        dcs2_dr[i]^2*3ρ[i] + cs2[i]*
+                        (
+                            3ρ[i]/r[i] + dρ_dr[i]
+                        )
+                    )*β/(2r[i])*ξt[i] -
+                    (
+                        3/r[i] + dcs2_dr[i]*3ρ[i]/(4μ[i])
+                        + cs2[i]*
+                        (
+                            3ρ[i]/r[i] - ρ[i]*dμ_dr[i]/μ[i] + dρ_dr[i]
+                        ) * 3/(4μ[i])
+                    ) * T1[i] +
+                    (
+                        1 + 3cs2[i]*ρ[i] / (2μ[i])
+                    ) * β^2 / r[i] * T2[i]
+                )
+            )
+            T2[i+1] = (
+                T2[i] + dr * (
+                    ρ[i]/r[i]*δϕ[i] - ft[i] 
+                    - cs2[i]*(3ρ[i]+r[i]*dρ_dr[i])/r[i]^2*ξr[i]
+                    + (3cs2[i]*ρ[i]/2 + (1 - 2/β^2)*μ[i])*β/r[i]^2*ξr[i]
+                    + (1/2 - 3cs2[i]*ρ[i]/(4μ[i]))/r[i]*T1[i] 
+                    - 3T2[i]/r[i]
                 )
             )
         end
@@ -195,6 +236,12 @@ end
         lhs0[i] = d2ϕ_dr2[i] + 2/r[i]*dϕ_dr[i] 
         lhs2[i] = d2δϕ_dr2[i] + 2/r[i]*dδϕ_dr[i] - β^2/r[i]^2*δϕ[i]
     end
+
+    for i = Nco:Nco+10
+        println(r[i], " ", T1[i], " ", T2[i], " ", ξr[i], " ", ξt[i])
+    end
+
+    plot(r, T1)
 
 end
 
