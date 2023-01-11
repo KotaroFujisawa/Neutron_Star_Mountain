@@ -25,6 +25,17 @@ function affect!(integrator)
     terminate!(integrator)
 end
 
+function Poisson(du, u, param, r)
+    G = 6.6743e-8
+
+    δϕ   = u[1]
+    δϕ_dr= u[2]
+
+    δρ = 1.0e12
+    β2 = 2*(2+1)
+    du[1] = u[2]
+    du[2] = -2/r*u[2] + β2/r^2*u[1] + 4π*G*δρ
+end
 
 function main()
     #simple NS model
@@ -94,6 +105,27 @@ function main()
 ###
 
 ###force
+
+rspan   = (r_min, R)
+rspan_r = (R, R/2)
+fp = [0.0, -1.35335e6]
+
+param = ()
+probP = ODEProblem(Poisson, fp, rspan, param)
+ppo = solve(probP, Tsit5(), reltol = 1.0e-8, abstol = 1.0e-8)
+
+fpr= [-1.0e13, +1.0e13/R*3]
+
+probPr = ODEProblem(Poisson, fpr, rspan_r, param)
+ppor = solve(probPr, Tsit5(), reltol = 1.0e-8, abstol = 1.0e-8)
+
+#plot(ppor)
+
+np = size(ppo.t, 1) - 1
+
+print(ppo.u[np][1]," ", ppo.u[np][2], " ",-ppo.u[np][2]/ppo.u[np][1]*R/3,"\n")
+
+plot(ppo)
 
 
 end 
