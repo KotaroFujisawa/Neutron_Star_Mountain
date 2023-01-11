@@ -59,7 +59,7 @@ function main()
 
     #number of radial grid
     Nr = 129
-    #number of rdial grid for coordinate
+    #number of rdial grid for crust
     Ncr = 12
     Nco = Nr - Ncr
 

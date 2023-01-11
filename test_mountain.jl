@@ -25,6 +25,7 @@ function affect!(integrator)
     terminate!(integrator)
 end
 
+
 function main()
     #simple NS model
     Γ = 2
@@ -42,7 +43,6 @@ function main()
     prob0 = ODEProblem(back_ground, f0, rspan, param)
     cb     = DiscreteCallback(condition, affect!)
     bg_star = solve(prob0, Tsit5(), callback=cb, reltol = 1.0e-10, abstol = 1.0e-10)
-#    bg_star = solve(prob0, Tsit5(), callback=cb)
 
     nr = size(bg_star.t, 1) - 1
     #radius
@@ -77,20 +77,24 @@ function main()
                     )
     end
 
+    #interpolation by spline curve
     ρ_r = Spline1D(r, ρ)
 
     #grid point
-    ng = 100
-    r_g = range(1, R*0.99999, ng)
+    ng = 1000
+    r_g = range(10, 0.99999*R, ng)
     ρ_g = zeros(Float64, ng)
     dρ_g_dr = zeros(Float64, ng)
+    dρ_g_dr2= zeros(Float64, ng)
     for i=1:ng
         ρ_g[i] = ρ_r(r_g[i])
         dρ_g_dr[i] = derivative(ρ_r, r_g[i]; nu=1)
+        dρ_g_dr2[i]= derivative(ρ_r, r_g[i]; nu=2)
     end
+###
 
-    plot(r, dρ_dr)
-    plot!(r_g, dρ_g_dr)
+###force
+
 
 end 
 
