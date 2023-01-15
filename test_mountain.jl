@@ -3,128 +3,63 @@ using DifferentialEquations
 using Dierckx
 using QuadGK
 
-function back_ground(du, u, param, r)
-    G = 6.6743e-8
-    Γ = param[1]
-    K = param[2]
-    #u[1] -> m(r), u[2] -> p(r)
-    m = u[1]
-    p = u[2]
-    #p = Kρ^Γ
-    ρ = (abs(p)/K)^(1/Γ) 
-    du[1] = 4π * r^2 * ρ
-    du[2] = -ρ * G * m / r^2
-#    print("r = ", r, ", m =", m, ", ρ = ", p, "\n")
-end
+include("background_star.jl")
+using .background_star
 
-function condition(u, r, integrator)
-    p_min = 1.0e9
-    u[2] < p_min #integrate until u[2] = p = 0
-end
 
-function affect!(integrator)
-    terminate!(integrator)
-end
 
 function main()
     #simple NS model
     Γ = 2
-    K = 46000
-    M0 = 1.989e33 #g
-    G = 6.6743e-8
-    param = (Γ, K)
-    ℓ  = 2
-    β2 = ℓ*(ℓ+1)
+    K = 46000     #cgs
+    M0 = 1.989e33 #cgs
+    G = 6.6743e-8 #cgs
+
+    ℓ  = 2        #ℓ = m = 2 deformation
+    β2 = ℓ*(ℓ+1)  #β^2 = ℓ(ℓ+1)
 
     ρ0 = 2.0e15   #central density     r = r_min
     ρc = 2.0e14   #core-crust boundary r = r_c
     ρo = 1.0e11   #crust-ocian boundary r = r_o 
-    p0 = K*ρ0^Γ
-    m0 = 0.0
+    ρ_min = 1.0e4 #surface desnity
 
-    r_min = 0.1   #[cm]
-    r_c = 0.0
-    r_o = 0.0
-    f0 = [m0, p0]
-    rspan = (r_min, 2.0e6)
-    prob0 = ODEProblem(back_ground, f0, rspan, param)
-    cb     = DiscreteCallback(condition, affect!)
-    bg_star = solve(prob0, Tsit5(), callback=cb, reltol = 1.0e-10, abstol = 1.0e-10)
+    r_min = 0.1   #minimun radius
+    r_c = 0.0     #core-crust boundary
+    r_o = 0.0     #crust-ocian boundary
+    R   = 0.0     #stellar radius
+    r_max = 3.0e6 
+    #make background star
+    nr, R, M, r, ρ, p, cs2, m, dρ_dr, dp_dr, d2ρ_dr2 = (
+        background_star.make_bg_star_p(
+            K, Γ, ρ0, ρ_min, r_min, r_max
+        )
+    )
 
-    nr = size(bg_star.t, 1) - 1
-    #radius
-    R = bg_star.t[nr]
-    M = bg_star.u[nr][1]
-    r = zeros(Float64, nr)
-    ρ = zeros(Float64, nr)
-    p = zeros(Float64, nr)
-    m = zeros(Float64, nr)
-
-    δρ = zeros(Float64, nr)
-    δϕ = zeros(Float64, nr)
-    dδϕ_dr = zeros(Float64, nr)
-
-    for i=1:nr
-        r[i] = bg_star.t[i]
-        p[i] = bg_star.u[i][2]
-        ρ[i] = (p[i]/K)^(1/Γ)
-        m[i] = bg_star.u[i][1]
-    end 
     #background star
-    print("n r = ", nr, " M = ", M/M0, " R = ", R/1.0e5, "\n")
-
-    #dp_dr, dρ_dr
-    dp_dr = zeros(Float64, nr)
-    dρ_dr = zeros(Float64, nr)
-    dρ_dr2= zeros(Float64, nr)
-    cs2   = zeros(Float64, nr)
-    r2    = zeros(Float64, nr)
-    for i=1:nr
-        dp_dr[i] = -ρ[i]*G*m[i]/r[i]^2
-        dρ_dr[i] = -ρ[i]^(2-Γ) / (Γ*K) * G*m[i] /r[i]^2
-        cs2[i]   = K*Γ*ρ[i]^(Γ-1)
-        dρ_dr2[i]= (2ρ[i]^(2-Γ)/(Γ*K) * G*m[i]/r[i]^3
-                    - (2-Γ)/(Γ*K) * ρ[i]^(1-Γ)*dρ_dr[i] * G*m[i]/r[i]^2
-                    - ρ[i]^(3-Γ) / (Γ*K) * (4π*G)
-                    )
-    end
+    print("grid number = $nr, M = $(M/M0)  R = $(R/1.0e5) [km] \n")
 
     #interpolation by spline curve
     ρ_r = Spline1D(r, ρ)
  
-    r_c = 0.8e6
-    for i=1:10
-        r_c -= (ρ_r(r_c) - ρc) / derivative(ρ_r, r_c;nu=1)
-    end
-    r_o = 0.8e6
-    for i=1:10
-        r_o -= (ρ_r(r_o) - ρo) / derivative(ρ_r, r_o;nu=1)
-    end
+    r_c = background_star.cal_r_from_ρ(0.8*R,  ρc, ρ_r)
+    r_o = background_star.cal_r_from_ρ(0.95*R, ρo, ρ_r)
 
     print("r_c = $r_c  \n")
     print("r_o = $r_o  \n")
 
-    #grid point
-    ng = 1000
-    r_g = range(10, 0.99999*R, ng)
-    ρ_g = zeros(Float64, ng)
-    dρ_g_dr = zeros(Float64, ng)
-    dρ_g_dr2= zeros(Float64, ng)
-    for i=1:ng
-        ρ_g[i] = ρ_r(r_g[i])
-        dρ_g_dr[i] = derivative(ρ_r, r_g[i]; nu=1)
-        dρ_g_dr2[i]= derivative(ρ_r, r_g[i]; nu=2)
-    end
-###
+    #perturbation
+    δρ = zeros(Float64, nr)
+    δϕ = zeros(Float64, nr)
+    dδϕ_dr = zeros(Float64, nr)
 
-### fluid star
+### fluid star ###
 
-    #force f_i = -Aρ ∇_i (r^2 Y_lm)
+    #force A f_i = -Aρ ∇_i (r^2 Y_lm)
     A = 1e9
     fr(r) = -2A*r*ρ_r(r)
     ft(r) =  -A*r*ρ_r(r)
 
-    ###perturbe Poisson eq
+    ###perturb Poisson eq
     rspan   = (r_min, R)
     param = ()
     δρ_r = Spline1D(r, δρ)
@@ -208,9 +143,7 @@ function main()
 
     plot(r, ρ)
 
-
 #solid crust
-    
 
 end
 
