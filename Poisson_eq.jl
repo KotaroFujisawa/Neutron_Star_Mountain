@@ -3,7 +3,7 @@ using DifferentialEquations
 using Dierckx
 using QuadGK
     #solve perturb Poisson equation by shooting method
-    function Poisson(δρ_r, ℓ, r_min, R, r, nr, max_ite=100000)
+    function Poisson(δρ_r, ℓ, r_min, R, r_g, nr, ϵ = 1.0e-6, max_ite=100000)
         G = 6.6743e-8 #cgs
         ϵ = 1.0e-6
 
@@ -25,6 +25,9 @@ using QuadGK
         rspan = (r_min, R)
 
 
+        δϕ = zeros(Float64, nr)
+        dδϕ_dr = zeros(Float64, nr)
+
         for i=1:max_ite
             f0 = [0.0, dδϕ_dr_c]
 
@@ -38,22 +41,22 @@ using QuadGK
 
             f0 = [0.0, dδϕ_dr_c*(1.0 + ϵ)]
             #shooting
-            probP = ODEProblem(Poisson, f0, rspan, param)
-            ppo = solve(probP, Tsit5(), reltol = 1.0e-8, abstol = 1.0e-8)
+            prob2 = ODEProblem(source, f0, rspan, param)
+            ppo2 = solve(prob2, Tsit5(), reltol = 1.0e-8, abstol = 1.0e-8)
         
-            np = size(ppo.t, 1)
+            np = size(ppo2.t, 1)
             #dδϕ/dr + (ℓ+1)/R δϕ = 0 at r = R 
             #-> f = -dδϕ/dr  /  (ℓ+1)/R * δϕ
-            f2 = (-ppo.u[np][2] / ((ℓ+1) / (R) * ppo.u[np][1]) - 1.0)
+            f2 = (-ppo2.u[np][2] / ((ℓ+1) / (R) * ppo2.u[np][1]) - 1.0)
 
             #Newton method
             fp = (f2 - f) / ϵ
             dδϕ_dr_c = dδϕ_dr_c - 1.0e3 * f / fp
 
             if(abs(f) < 1.0e-6) 
-                print("Converge j = $j dδϕ_dr_c = $dδϕ_dr_c f = $f \n")
+ #               print("Converge i = $i dδϕ_dr_c = $dδϕ_dr_c f = $f \n")
                 for i = 1:nr
-                    δϕ[i], dδϕ_dr[i] = ppo(r[i])
+                    δϕ[i], dδϕ_dr[i] = ppo(r_g[i])
                 end
                 break
             end

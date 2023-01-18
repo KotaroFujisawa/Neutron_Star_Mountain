@@ -20,7 +20,7 @@ function main()
 
     ℓ  = 2        #ℓ = m = 2 deformation
     β2 = ℓ*(ℓ+1)  #β^2 = ℓ(ℓ+1)
-    β = sqrt(β)
+    β = sqrt(β2)
 
     ρ0 = 2.0e15   #central density     r = r_min
     ρc = 2.0e14   #core-crust boundary r = r_c
@@ -101,7 +101,7 @@ function main()
     end
     dμ_dr_r = Spline1D(r_g, dμ_dr)
 
-    max_ite2 = 1
+    max_ite2 = 5
     for ite=1:max_ite2
         for i=1:nr
             if r_c < r_g[i] && r_g[i] < r_o
@@ -109,10 +109,19 @@ function main()
             else
                 δρ[i] =  -(ρ[i]*δϕ[i] - ft(r_g[i])) / cs2[i]
             end
+            δρ_r = Spline1D(r_g, δρ)
+#            δϕ, dδϕ_dr = Poisson_eq.Poisson(δρ_r, ℓ, r_min, R, r_g, nr)
+#            δρ_rc = δρ_r(r_c)
         end
+        #ellipticity
+
     end
-        
-    plot(r_g, dμ_dr)
+
+    ε_s = Perturb_star.ellipticity(δρ_r, r_min, R)
+    print("ε_s = $ε_s \n")
+
+    plot(r_g, δρ)
+
 
 end
 
