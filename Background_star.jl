@@ -1,4 +1,4 @@
-module background_star
+module Background_star
 using DifferentialEquations
 using Dierckx
 #make polytropic star
