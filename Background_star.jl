@@ -31,7 +31,7 @@ using Dierckx
         rspan = (r_min, r_max)
         prob = DifferentialEquations.ODEProblem(euler, u0, rspan, param)
         cb     = DiscreteCallback(condition, affect!)
-        bg_star = solve(prob, Tsit5(), callback=cb, reltol = 1.0e-10, abstol = 1.0e-10)
+        bg_star = solve(prob, Tsit5(), callback=cb, reltol = 1.0e-12, abstol = 1.0e-12)
         #number of radial grids
         nr = size(bg_star.t, 1) - 1
 
