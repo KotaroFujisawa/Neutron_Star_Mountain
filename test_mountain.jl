@@ -34,7 +34,8 @@ function main()
     r_o = 0.0     #crust-ocian boundary
     R   = 0.0     #stellar radius
     r_max = 3.0e6 
-    #make background star
+
+    #make background star (N=1 polytropic star)
     nr, R, M, r_g, ρ, p, cs2, m, dρ_dr, dp_dr, d2ρ_dr2 = (
         Background_star.make_bg_star_p(
             K, Γ, ρ0, ρ_min, r_min, r_max
@@ -42,15 +43,14 @@ function main()
     )
     #r_g : radial grid
 
-    #background star
+    #physical quantities of background star
     print("grid number = $nr, M = $(M/M0)  R = $(R/1.0e5) [km] \n")
 
     #interpolation by spline curve
-
     ρ_r     = Spline1D(r_g, ρ)
-    dρ_dr_r = Spline1D(r_g, dρ_dr)
-    d2ρ_dr2_r= Spline1D(r_g, d2ρ_dr2)
-    cs2_r   = Spline1D(r_g, cs2)
+    dρ_dr_r = Spline1D(r_g, dρ_dr)    #dρ / dr
+    d2ρ_dr2_r= Spline1D(r_g, d2ρ_dr2) #d^2ρ / dr^2
+    cs2_r   = Spline1D(r_g, cs2)  
 
     dcs2_dr = zeros(Float64, nr)
     for i=1:nr 
@@ -58,6 +58,7 @@ function main()
     end
     dcs2_dr_r = Spline1D(r_g, dcs2_dr)
 
+    #calculate r_o & r_c
     r_c = Background_star.cal_r_from_ρ(0.8*R,  ρc, ρ_r)
     r_o = Background_star.cal_r_from_ρ(0.95*R, ρo, ρ_r)
 
@@ -75,7 +76,7 @@ function main()
 #    fr(r) =-2A*r*ρ_r(r)
 #    ft(r) =-A*r*ρ_r(r)
     
-    #force B
+    #force B f_i = Bρr ∇_i Y_lm 
     B = 8.0e9
     fr(r) = 0.0
     ft(r) = B*ρ_r(r)
@@ -91,12 +92,9 @@ function main()
         δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr)
         δρ_rc = δρ_r(r_c)
     end
-    for i=1:nr
-        δp[i] = K*δρ[i]^Γ
-    end
     #ellipticity
     ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
-    print("ε_f = $ε_f \n")
+
 
 #solid crust
 
@@ -138,20 +136,25 @@ function main()
 
     end
 
+    #δp
     for i=1:nr
         δp[i] = cs2[i] * δρ[i]
     end
 
     ε_s = Perturb_star.ellipticity(δρ_r, r_min, R)
+    println("ε_f = $ε_f")
     println("ε_s = $ε_s")
     println("|ε_s - ε_f| = ", abs(ε_s - ε_f))
+
 
     nθ = 100
     nφ = 100
 
+
     θ = range(0.0, stop=π,  length=nθ)
     φ = range(0.0, stop=2π, length=nφ) 
 
+    #strain
     σ2 = zeros(Float64, nr, nθ, nφ)
     σ  = zeros(Float64, nr)
     for i=1:nr
@@ -172,18 +175,14 @@ function main()
     end
 
     σ2_max = maximum(σ2)
-
+    #maximum strain
     println("σmax = ", sqrt(σ2_max))
 
     for i=1:nr
         σ[i] = sqrt(maximum(σ2[i,:,:]))
     end
 
-#    plot(r_g, δϕ)
-
-    fig = plt.figure()  
-    ax = fig.add_subplot(1, 1, 1)
-#    ax.plot(x, sin.(x), "-", c="b", ms=10)
+    #plot by using matplotlib
 
     fig, ax = plt.subplots()
     ax.plot(r_g, T1)
@@ -241,7 +240,6 @@ function main()
     ax.set_ylabel("|σ|")
     ax.set_xlim(0.99r_o, r_o)
     plt.savefig("sigma.pdf")
-
 
 end
 
