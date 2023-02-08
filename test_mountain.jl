@@ -76,7 +76,7 @@ function main()
 #    ft(r) =-A*r*ρ_r(r)
     
     #force B
-    B = 4.0e8
+    B = 8.0e9
     fr(r) = 0.0
     ft(r) = B*ρ_r(r)
 
@@ -117,7 +117,7 @@ function main()
     end
     dμ_dr_r   = Spline1D(r_g, dμ_dr)
 
-    max_ite2 = 25
+    max_ite2 = 15
 
     for ite=1:max_ite2
         for i=1:nr
@@ -139,7 +139,7 @@ function main()
     end
 
     for i=1:nr
-        δp[i] = p[i] - K*(ρ[i]+δρ[i])^Γ
+        δp[i] = cs2[i] * δρ[i]
     end
 
     ε_s = Perturb_star.ellipticity(δρ_r, r_min, R)
@@ -153,7 +153,7 @@ function main()
     φ = range(0.0, stop=2π, length=nφ) 
 
     σ2 = zeros(Float64, nr, nθ, nφ)
-
+    σ  = zeros(Float64, nr)
     for i=1:nr
         for j=1:nθ
             for k = 1:nφ
@@ -174,6 +174,11 @@ function main()
     σ2_max = maximum(σ2)
 
     println("σmax = ", sqrt(σ2_max))
+
+    for i=1:nr
+        σ[i] = sqrt(maximum(σ2[i,:,:]))
+    end
+
 #    plot(r_g, δϕ)
 
     fig = plt.figure()  
@@ -229,6 +234,14 @@ function main()
     ax.set_ylabel("δϕ")
     ax.set_xlim(r_min, R)
     plt.savefig("delta_phi.pdf")
+
+    fig, ax = plt.subplots()
+    ax.plot(r_g, σ)
+    ax.grid(true)
+    ax.set_ylabel("|σ|")
+    ax.set_xlim(0.99r_o, r_o)
+    plt.savefig("sigma.pdf")
+
 
 end
 
