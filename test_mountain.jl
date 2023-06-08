@@ -15,7 +15,7 @@ using .Perturb_star
 function main()
     #simple NS model
     Γ = 2
-    K = 46000     #cgs
+    K = 42500     #cgs
     M0 = 1.989e33 #cgs solar mass
     G = 6.6743e-8 #cgs
     κ = 1.0e16    #cgs
@@ -24,7 +24,7 @@ function main()
     β2 = ℓ*(ℓ+1)  #β^2 = ℓ(ℓ+1)
     β = sqrt(β2)
 
-    ρ0 = 2.0e15   #central density     r = r_min
+    ρ0 = 2.185e15   #central density     r = r_min
     ρc = 2.0e14   #core-crust boundary r = r_c
     ρo = 1.0e11   #crust-ocian boundary r = r_o 
     ρ_min = 1.0e4 #surface desnity
@@ -77,7 +77,7 @@ function main()
 #    ft(r) =-A*r*ρ_r(r)
     
     #force B f_i = Bρr ∇_i Y_lm 
-    B = 8.0e9
+    B = 8.9e9
     fr(r) = 0.0
     ft(r) = B*ρ_r(r)
 
@@ -157,6 +157,9 @@ function main()
     #strain
     σ2 = zeros(Float64, nr, nθ, nφ)
     σ  = zeros(Float64, nr)
+    σr1 = zeros(Float64, nr)
+    σr2 = zeros(Float64, nr)
+    σr3 = zeros(Float64, nr)
     for i=1:nr
         for j=1:nθ
             for k = 1:nφ
@@ -174,9 +177,22 @@ function main()
         end
     end
 
+    for i=1:nr
+        if r_c ≤ r_g[i] && r_g[i] ≤ r_o
+            σr1[i] = sqrt(45.0/128π) * abs(T1[i] / μ[i])
+            σr2[i] = sqrt(1215/512π) * abs(T2[i] / μ[i])
+            σr3[i] = sqrt(5.0/4π) * abs(ξt[i]/ r_g[i])
+        else
+            σr1[i] = 0.0
+            σr2[i] = 0.0
+            σr3[i] = 0.0
+        end
+    end
+
+
     σ2_max = maximum(σ2)
     #maximum strain
-    println("σmax = ", sqrt(σ2_max))
+    println("σ_max = ", sqrt(σ2_max))
 
     for i=1:nr
         σ[i] = sqrt(maximum(σ2[i,:,:]))
@@ -240,6 +256,25 @@ function main()
     ax.set_ylabel("|σ|")
     ax.set_xlim(0.99r_o, r_o)
     plt.savefig("sigma.pdf")
+
+    fig, ax = plt.subplots()
+    ax.plot(r_g, σr1)
+    ax.plot(r_g, σr2)
+    ax.plot(r_g, σr3)
+    ax.grid(true)
+    ax.set_ylabel("|σ|")
+    ax.set_xlim(0.99r_o, r_o)
+    ax.set_ylim(0.0, 0.1)
+    plt.savefig("sigma123.pdf")
+
+    fig, ax = plt.subplots()
+    ax.set_yscale("log")
+    ax.plot(r_g, ρ)
+    ax.grid(true)
+    ax.set_ylabel("ρ")
+    ax.set_xlim(0.99r_o, r_o)
+    plt.savefig("density.pdf")
+
 
 end
 
