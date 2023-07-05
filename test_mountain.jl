@@ -26,7 +26,7 @@ function main()
 
     ρ0 = 2.185e15   #central density     r = r_min
     ρc = 2.0e14   #core-crust boundary r = r_c
-    ρo = 1.0e11   #crust-ocian boundary r = r_o 
+    ρo = 2.18e8 #2.18e8   #crust-ocian boundary r = r_o 
     ρ_min = 1.0e4 #surface desnity
 
     r_min = 0.1   #minimun radius
@@ -65,6 +65,12 @@ function main()
     print("r_c = $r_c  \n")
     print("r_o = $r_o  \n")
 
+    out = open("rho.dat","w")
+    for i=1:nr
+        print(out, "$(r_g[i])  $(ρ[i]) \n")
+    end
+    close(out)
+
     #perturbation
     δρ = zeros(Float64, nr)
     δp = zeros(Float64, nr)
@@ -72,14 +78,16 @@ function main()
     dδϕ_dr = zeros(Float64, nr)
 
     #force A f_i = -Aρ ∇_i (r^2 Y_lm)
-    A = 9.0e4
-#    fr(r) =-2A*r*ρ_r(r)
-#    ft(r) =-A*r*ρ_r(r)
+    A = 0.74e7
+    fr(r) =-2A*r*ρ_r(r)
+    ft(r) =-A*r*ρ_r(r)
     
     #force B f_i = Bρr ∇_i Y_lm 
-    B = 8.9e9
-    fr(r) = 0.0
-    ft(r) = B*ρ_r(r)
+    # fr = 0.0
+    # ft = Bρ 
+#    B = 2*10.2e9/1.5068 /sqrt(0.979)
+#    fr(r) = 0.0
+#    ft(r) = B*ρ_r(r)
 
 ### fluid star ###
 
@@ -189,6 +197,20 @@ function main()
         end
     end
 
+    out = open("sigma123.dat","w")
+    for i=1:nr
+        print(out, "$(r_g[i])  $(σr1[i])  $(σr2[i]) $(σr3[i]) \n")
+    end
+    close(out)
+
+    out = open("T1T2.dat","w")
+    for i=1:nr
+        tmp_T1 =( ((ρ[i]*δϕ[i] - ft(r_g[i])*r_g[i]) - 
+        cs2[i]*( (3ρ[i]/r_g[i] + dρ_dr[i])*ξr[i] - 3β*ρ[i]/2r_g[i]*ξt[i]))
+        / (1 + 3cs2[i]*ρ[i]/(4μ[i])))
+        print(out, "$(r_g[i])  $(δp[i] - T1[i]) $(δp[i])  $(T1[i])  $(tmp_T1)  $(T2[i]) \n")
+    end
+    close(out)
 
     σ2_max = maximum(σ2)
     #maximum strain
@@ -207,6 +229,7 @@ function main()
     ax.set_xlim(r_c, r_o)
     ax.set_ylabel("T1")
     plt.savefig("T1.pdf")
+    plt.close()
 
     fig, ax = plt.subplots()
     ax.plot(r_g, δp - T1)
@@ -214,6 +237,7 @@ function main()
     ax.set_ylabel("δp - T1")
     ax.set_xlim(0.0, R)
     plt.savefig("deltap_T1.pdf")
+    plt.close()
 
     fig, ax = plt.subplots()
     ax.plot(r_g, T2)
@@ -221,6 +245,7 @@ function main()
     ax.set_ylabel("T2")
     ax.set_xlim(r_c, r_o)
     plt.savefig("T2.pdf")
+    plt.close()
 
     fig, ax = plt.subplots()
     ax.plot(r_g, ξr)
@@ -228,6 +253,7 @@ function main()
     ax.set_ylabel("ξr")
     ax.set_xlim(r_c, r_o)
     plt.savefig("xi_r.pdf")
+    plt.close()
 
     fig, ax = plt.subplots()
     ax.plot(r_g, ξt)
@@ -235,6 +261,7 @@ function main()
     ax.set_ylabel("ξt")
     ax.set_xlim(r_c, r_o)
     plt.savefig("xi_t.pdf")
+    plt.close()
 
     fig, ax = plt.subplots()
     ax.plot(r_g, δρ)
@@ -242,6 +269,7 @@ function main()
     ax.set_ylabel("δρ")
     ax.set_xlim(r_min, R)
     plt.savefig("delta_rho.pdf")
+    plt.close()
 
     fig, ax = plt.subplots()
     ax.plot(r_g, δϕ)
@@ -249,6 +277,7 @@ function main()
     ax.set_ylabel("δϕ")
     ax.set_xlim(r_min, R)
     plt.savefig("delta_phi.pdf")
+    plt.close()
 
     fig, ax = plt.subplots()
     ax.plot(r_g, σ)
@@ -256,25 +285,28 @@ function main()
     ax.set_ylabel("|σ|")
     ax.set_xlim(0.99r_o, r_o)
     plt.savefig("sigma.pdf")
+    plt.close()
 
     fig, ax = plt.subplots()
+    ax.set_yscale("log")
     ax.plot(r_g, σr1)
     ax.plot(r_g, σr2)
     ax.plot(r_g, σr3)
     ax.grid(true)
     ax.set_ylabel("|σ|")
     ax.set_xlim(0.99r_o, r_o)
-    ax.set_ylim(0.0, 0.1)
+    ax.set_ylim(1.0e-6, 0.1)
     plt.savefig("sigma123.pdf")
+    plt.close()
 
     fig, ax = plt.subplots()
     ax.set_yscale("log")
     ax.plot(r_g, ρ)
     ax.grid(true)
     ax.set_ylabel("ρ")
-    ax.set_xlim(0.99r_o, r_o)
+    ax.set_xlim(0.999r_o, 1.001r_o)
     plt.savefig("density.pdf")
-
+    plt.close()
 
 end
 

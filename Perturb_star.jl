@@ -64,14 +64,14 @@ using BoundaryValueDiffEq
             ξrb = sol(r_o)[1]
             ξtb = sol(r_o)[2]
             T1b = ((ρ(r_o)*δϕ(r_o) - ft(r_o)*r_o - 
-                cs2(r_o)*( (3ρ(r_o)/r_o + dρ_dr(r_o))*ξra - 3β*ρ(r_o)/2r_o*ξtb))
+                cs2(r_o)*( (3ρ(r_o)/r_o + dρ_dr(r_o))*ξrb - 3β*ρ(r_o)/2r_o*ξtb))
                 / (1 + 3cs2(r_o)*ρ(r_o)/(4μ(r_o))))
             T2b = sol(r_o)[4]
             
-            res[1] = T2a
-            res[2] = T1a - sol(r_c)[3]
-            res[3] = T2b
-            res[4] = T1b - sol(r_o)[3]
+            res[1] = T2a 
+            res[2] = (T1a - sol(r_c)[3]) 
+            res[3] = T2b 
+            res[4] = (T1b - sol(r_o)[3])
         end
 
         rspan = (r_c, r_o)
