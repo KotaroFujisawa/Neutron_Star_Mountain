@@ -84,7 +84,6 @@ function main()
     ft(r) =-A*r*ρ_r(r)
 
     #force B f_i = Bρr ∇_i Y_lm
-    
     # fr = 0.0
     # ft = Bρ 
 #    B = 2*10.2e9/1.5068 /sqrt(0.979)
