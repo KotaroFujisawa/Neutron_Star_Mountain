@@ -78,12 +78,13 @@ function main()
     δϕ = zeros(Float64, nr)
     dδϕ_dr = zeros(Float64, nr)
 
+    
     #force A f_i = -Aρ ∇_i (r^2 Y_lm)
     A = 0.74e7
     fr(r) =-2A*r*ρ_r(r)
     ft(r) =-A*r*ρ_r(r)
 
-    
+
     #force B f_i = Bρr ∇_i Y_lm
     # fr = 0.0
     # ft = Bρ 
