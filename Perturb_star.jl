@@ -51,7 +51,7 @@ using BoundaryValueDiffEq
                 + (3cs2(r)*ρ(r) / 2 + (1-2/β2)*μ(r))*β/r^2*ξt
                 + (1/2 - 3cs2(r)*ρ(r)/(4μ(r)))*T1/r - 3T2/r
             )
-
+        end
             
         function bc(res, sol, param, r)
             ξra = sol(r_c)[1]
@@ -109,5 +109,5 @@ using BoundaryValueDiffEq
         end
         return T1_g, T2_g, ξr_g, ξt_g
     end
-
+    
 end
