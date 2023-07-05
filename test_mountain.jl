@@ -71,7 +71,7 @@ function main()
     end
     close(out)
 
-    
+
     #perturbation
     δρ = zeros(Float64, nr)
     δp = zeros(Float64, nr)
@@ -91,6 +91,7 @@ function main()
 #    ft(r) = B*ρ_r(r)
 
 ### fluid star ###
+
 
     δρ_r = Spline1D(r_g, δρ)
 
