@@ -35,10 +35,14 @@ function main()
     R   = 0.0     #stellar radius
     r_max = 3.0e6 
 
+    #for mesh size
+    reltol = 1.0e-10
+    abstol = 1.0e-10
+
     #make background star (N=1 polytropic star)
     nr, R, M, r_g, ρ, p, cs2, m, dρ_dr, dp_dr, d2ρ_dr2 = (
         Background_star.make_bg_star_p(
-            K, Γ, ρ0, ρ_min, r_min, r_max
+            K, Γ, ρ0, ρ_min, r_min, r_max,  reltol, abstol
         )
     )
     #r_g : radial grid
@@ -80,29 +84,43 @@ function main()
 
 
     #force A f_i = -Aρ ∇_i (r^2 Y_lm)
-    A = 0.74e7
+#    A = 0.7709e7
     fr(r) =-2A*r*ρ_r(r)
     ft(r) =-A*r*ρ_r(r)
 
 
     #force B f_i = Bρr ∇_i Y_lm
     # fr = 0.0
-    # ft = Bρ 
-#    B = 2*10.2e9/1.5068 /sqrt(0.979)
-#    fr(r) = 0.0
-#    ft(r) = B*ρ_r(r)
+#   ft = Bρ 
+    B = 21.2e9/1.5068 /sqrt(0.979)
+    fr(r) = 0.0
+    ft(r) = B*ρ_r(r)
 
 ### fluid star ###
+
+    dδϕ_dr_o = 0.0
+    dδϕ_dr_n = 0.0
 
 
     δρ_r = Spline1D(r_g, δρ)
 
-    max_ite = 50
+    max_ite = 100
+    guess = 0.0
     for ite=1:max_ite
         δρ = Perturb_star.δρ_fluid_star(r_g, ρ, δϕ, cs2, fr, ft, nr)
         δρ_r = Spline1D(r_g, δρ)
-        δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr)
+        δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
+        dδϕ_dr_n = dδϕ_dr[1]
+        diff_dδϕ_dr = abs(dδϕ_dr_n - dδϕ_dr_o) / abs(dδϕ_dr_n)
+        if(ite > 3)
+            guess = (0.5*dδϕ_dr_n + 0.5*dδϕ_dr_o) 
+        end
+        println("diff = $diff_dδϕ_dr", " $dδϕ_dr_n $dδϕ_dr_o", "  guess = $guess")
+        dδϕ_dr_o = dδϕ_dr_n
         δρ_rc = δρ_r(r_c)
+        ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
+        println("ε_f = $ε_f")
+    
     end
     #ellipticity
     ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
@@ -127,9 +145,14 @@ function main()
     end
     dμ_dr_r   = Spline1D(r_g, dμ_dr)
 
-    max_ite2 = 15
+    max_ite2 = 200
 
+    guess = 0.0
+    guess2 = [0.0, 0.0, 0.0]
+    init2_o = [0.0, 0.0, 0.0]
+    δρ_o = zeros(Float64, nr)
     for ite=1:max_ite2
+        println("ite = ", ite)
         for i=1:nr
             if r_c < r_g[i] && r_g[i] < r_o
                 δρ[i] = -(3ρ[i]/r_g[i] + dρ_dr[i])*ξr[i] + 3β*ρ[i]/(2r_g[i])*ξt[i] - 3ρ[i]/(4μ[i])*T1[i] 
@@ -137,15 +160,34 @@ function main()
                 δρ[i] =  -(ρ[i]*δϕ[i] - ft(r_g[i])*r_g[i]) / cs2[i]
             end
         end
+
         δρ_r     = Spline1D(r_g, δρ)
         δϕ_r     = Spline1D(r_g, δϕ)
         dδϕ_dr_r = Spline1D(r_g, dδϕ_dr)
 
-        T1, T2, ξr, ξt = Perturb_star.cal_ξ_T_BVP(ρ_r, dρ_dr_r, d2ρ_dr2_r, cs2_r, dcs2_dr_r, 
-        μ_r, dμ_dr_r, δϕ_r, dδϕ_dr_r, fr, ft, β2, r_c, r_o, r_g, nr)
+        T1, T2, ξr, ξt, init2 = Perturb_star.cal_ξ_T_BVP(ρ_r, dρ_dr_r, d2ρ_dr2_r, cs2_r, dcs2_dr_r, 
+        μ_r, dμ_dr_r, δϕ_r, dδϕ_dr_r, fr, ft, β2, r_c, r_o, r_g, nr, guess2)
 
-        δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr)
-
+        δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
+        dδϕ_dr_n = dδϕ_dr[1]
+        diff_dδϕ_dr = abs(dδϕ_dr_n - dδϕ_dr_o) / abs(dδϕ_dr_n)
+        if(ite > 3)
+            guess = (0.5*dδϕ_dr_n + 0.5*dδϕ_dr_o) 
+            guess2 = (0.5*init2 + 0.5*init2_o)
+        end
+        println("diff = $diff_dδϕ_dr", " $dδϕ_dr_n $dδϕ_dr_o", "  guess = $guess")
+        dδϕ_dr_o =  dδϕ_dr_n
+        init2_o = init2
+        if(diff_dδϕ_dr < 1.0e-8) 
+            break
+        end
+        dδϕ_dr_o = dδϕ_dr_n 
+        δρ_o = δρ
+        ε_s = Perturb_star.ellipticity(δρ_r, r_min, R)
+        println("ε_f = $ε_f")
+        println("ε_s = $ε_s")
+        println("|ε_s - ε_f| = ", abs(ε_s - ε_f))
+    
     end
 
     #δp
@@ -158,10 +200,8 @@ function main()
     println("ε_s = $ε_s")
     println("|ε_s - ε_f| = ", abs(ε_s - ε_f))
 
-
     nθ = 100
     nφ = 100
-
 
     θ = range(0.0, stop=π,  length=nθ)
     φ = range(0.0, stop=2π, length=nφ) 
@@ -312,7 +352,6 @@ function main()
     plt.savefig("density.pdf")
     plt.close()
 
-    
 end
 
 main()

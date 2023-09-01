@@ -4,7 +4,7 @@ using Dierckx
 using QuadGK
 using BoundaryValueDiffEq
 
-    function Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr)
+    function Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
         G = 6.6743e-8 #cgs
         ϵ = 1.0e-6
     
@@ -25,12 +25,16 @@ using BoundaryValueDiffEq
         #initial guess
         S_int(r) = 4π*G*δρ_r(r) * 10r_min^(ℓ) * r^(-ℓ+1)
         S = quadgk(S_int, 10r_min, R)
-        
         dδϕ_dr_c = - (S[1]) / (10r_min)
-        init = [0.0, dδϕ_dr_c]
+        print(dδϕ_dr_c, " ", guess, "\n")
+        if(abs(guess) < 1.0)
+            init = [0.0, dδϕ_dr_c]
+        else
+            init = [0.0, guess]
+        end
         param = ()
         rspan = (r_min, R)
-        bvp = BVProblem(source, bc, init, rspan)
+        bvp = BVProblem(source, bc, init, rspan, reltol = 1.0e-10, abstol = 1.0e-10)
         ppo = solve(bvp, Shooting(Vern6()))
         δϕ = zeros(Float64, nr)
         dδϕ_dr = zeros(Float64, nr)

@@ -21,7 +21,7 @@ using BoundaryValueDiffEq
     end
 
     function cal_ξ_T_BVP(ρ, dρ_dr, d2ρ_dr2, cs2, dcs2_dr, 
-        μ, dμ_dr, δϕ, dδϕ_dr, fr, ft, β2, r_c, r_o, r_g, nr)
+        μ, dμ_dr, δϕ, dδϕ_dr, fr, ft, β2, r_c, r_o, r_g, nr, guess2)
 
         β = sqrt(β2)
         println("BVP")
@@ -75,23 +75,30 @@ using BoundaryValueDiffEq
         end
 
         rspan = (r_c, r_o)
+
         #initial guess at r_c
-        ξr_0 = -400.0
-        ξt_0 =  -10.0
+        ξr_0 = -600.0
+        ξt_0 =  50.0
         T2_0 = 0.0
         T1_0 = ((ρ(r_c)*δϕ(r_c) - ft(r_c)*r_c - 
             cs2(r_c)*( (3ρ(r_c)/r_c + dρ_dr(r_c))*ξr_0 - 3β*ρ(r_c)/2r_c*ξt_0))
             / (1 + 3cs2(r_c)*ρ(r_c)/(4μ(r_c))))
- 
+        if(abs(guess2[1]) > 1.0)
+            ξr_0 = guess2[1]
+            ξt_0 = guess2[2]
+            T1_0 = guess2[3]
+        end
         init =[ξr_0, ξt_0, T1_0, T2_0]
         println(init)
         bvp  = BVProblem(source, bc, init, rspan)
-        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-8, abstol = 1.0e-8)
+        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-10, abstol = 1.0e-10)
 
         ξr_1 = ans(r_c)[1]
         ξt_1 = ans(r_c)[2]
-        init_ans = [ξr_1, ξt_1]    
-
+        T1_1 = ans(r_c)[3]
+        T2_2 = ans(r_c)[4]
+        init_ans = [ξr_1, ξt_1, T1_1, T2_2]    
+        init2 = [ξr_1, ξt_1, T1_1]
         println(init_ans)
 
         T1_g = zeros(Float64, nr)
@@ -107,7 +114,7 @@ using BoundaryValueDiffEq
                 ξr_g[i], ξt_g[i], T1_g[i], T2_g[i] = 0.0, 0.0, 0.0, 0.0
             end
         end
-        return T1_g, T2_g, ξr_g, ξt_g
+        return T1_g, T2_g, ξr_g, ξt_g, init2
     end
     
 end

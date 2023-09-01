@@ -2,7 +2,7 @@ module Background_star
 using DifferentialEquations
 using Dierckx
 #make polytropic star
-    function make_bg_star_p(K, Γ, ρ0, ρ_min, r_min, r_max)
+    function make_bg_star_p(K, Γ, ρ0, ρ_min, r_min, r_max, reltol, abstol)
         G = 6.6743e-8
         p_min = K*ρ_min^Γ
 
@@ -31,7 +31,7 @@ using Dierckx
         rspan = (r_min, r_max)
         prob = DifferentialEquations.ODEProblem(euler, u0, rspan, param)
         cb     = DiscreteCallback(condition, affect!)
-        bg_star = solve(prob, Tsit5(), callback=cb, reltol = 1.0e-12, abstol = 1.0e-12)
+        bg_star = solve(prob, Tsit5(), callback=cb, reltol = reltol, abstol = abstol)
         #number of radial grids
         nr = size(bg_star.t, 1) - 1
 
