@@ -36,8 +36,11 @@ function main()
     r_max = 3.0e6 
 
     #for mesh size
-    reltol = 1.0e-10
-    abstol = 1.0e-10
+    reltol = 1.0e-6
+    abstol = 1.0e-6
+
+    #for parameters
+    type_force = 1
 
     #make background star (N=1 polytropic star)
     nr, R, M, r_g, ρ, p, cs2, m, dρ_dr, dp_dr, d2ρ_dr2 = (
@@ -82,59 +85,13 @@ function main()
     δϕ = zeros(Float64, nr)
     dδϕ_dr = zeros(Float64, nr)
 
-
-    #force A f_i = -Aρ ∇_i (r^2 Y_lm)
-#    A = 0.7709e7
-    fr(r) =-2A*r*ρ_r(r)
-    ft(r) =-A*r*ρ_r(r)
-
-
-    #force B f_i = Bρr ∇_i Y_lm
-    # fr = 0.0
-#   ft = Bρ 
-    B = 21.2e9/1.5068 /sqrt(0.979)
-    fr(r) = 0.0
-    ft(r) = B*ρ_r(r)
-
-### fluid star ###
-
-    dδϕ_dr_o = 0.0
-    dδϕ_dr_n = 0.0
-
-
-    δρ_r = Spline1D(r_g, δρ)
-
-    max_ite = 100
-    guess = 0.0
-    for ite=1:max_ite
-        δρ = Perturb_star.δρ_fluid_star(r_g, ρ, δϕ, cs2, fr, ft, nr)
-        δρ_r = Spline1D(r_g, δρ)
-        δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
-        dδϕ_dr_n = dδϕ_dr[1]
-        diff_dδϕ_dr = abs(dδϕ_dr_n - dδϕ_dr_o) / abs(dδϕ_dr_n)
-        if(ite > 3)
-            guess = (0.5*dδϕ_dr_n + 0.5*dδϕ_dr_o) 
-        end
-        println("diff = $diff_dδϕ_dr", " $dδϕ_dr_n $dδϕ_dr_o", "  guess = $guess")
-        dδϕ_dr_o = dδϕ_dr_n
-        δρ_rc = δρ_r(r_c)
-        ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
-        println("ε_f = $ε_f")
-    
-    end
-    #ellipticity
-    ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
-
-
-#solid crust
-
     ξr = zeros(Float64, nr)
     ξt = zeros(Float64, nr)
     T1 = zeros(Float64, nr)
     T2 = zeros(Float64, nr)
     μ  = zeros(Float64, nr)
     dμ_dr = zeros(Float64, nr)
- 
+
     for i=1:nr
         μ[i] = κ*ρ[i]
     end
@@ -144,61 +101,6 @@ function main()
         dμ_dr[i]   = derivative(μ_r, r_g[i])
     end
     dμ_dr_r   = Spline1D(r_g, dμ_dr)
-
-    max_ite2 = 200
-
-    guess = 0.0
-    guess2 = [0.0, 0.0, 0.0]
-    init2_o = [0.0, 0.0, 0.0]
-    δρ_o = zeros(Float64, nr)
-    for ite=1:max_ite2
-        println("ite = ", ite)
-        for i=1:nr
-            if r_c < r_g[i] && r_g[i] < r_o
-                δρ[i] = -(3ρ[i]/r_g[i] + dρ_dr[i])*ξr[i] + 3β*ρ[i]/(2r_g[i])*ξt[i] - 3ρ[i]/(4μ[i])*T1[i] 
-            else
-                δρ[i] =  -(ρ[i]*δϕ[i] - ft(r_g[i])*r_g[i]) / cs2[i]
-            end
-        end
-
-        δρ_r     = Spline1D(r_g, δρ)
-        δϕ_r     = Spline1D(r_g, δϕ)
-        dδϕ_dr_r = Spline1D(r_g, dδϕ_dr)
-
-        T1, T2, ξr, ξt, init2 = Perturb_star.cal_ξ_T_BVP(ρ_r, dρ_dr_r, d2ρ_dr2_r, cs2_r, dcs2_dr_r, 
-        μ_r, dμ_dr_r, δϕ_r, dδϕ_dr_r, fr, ft, β2, r_c, r_o, r_g, nr, guess2)
-
-        δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
-        dδϕ_dr_n = dδϕ_dr[1]
-        diff_dδϕ_dr = abs(dδϕ_dr_n - dδϕ_dr_o) / abs(dδϕ_dr_n)
-        if(ite > 3)
-            guess = (0.5*dδϕ_dr_n + 0.5*dδϕ_dr_o) 
-            guess2 = (0.5*init2 + 0.5*init2_o)
-        end
-        println("diff = $diff_dδϕ_dr", " $dδϕ_dr_n $dδϕ_dr_o", "  guess = $guess")
-        dδϕ_dr_o =  dδϕ_dr_n
-        init2_o = init2
-        if(diff_dδϕ_dr < 1.0e-8) 
-            break
-        end
-        dδϕ_dr_o = dδϕ_dr_n 
-        δρ_o = δρ
-        ε_s = Perturb_star.ellipticity(δρ_r, r_min, R)
-        println("ε_f = $ε_f")
-        println("ε_s = $ε_s")
-        println("|ε_s - ε_f| = ", abs(ε_s - ε_f))
-    
-    end
-
-    #δp
-    for i=1:nr
-        δp[i] = cs2[i] * δρ[i]
-    end
-
-    ε_s = Perturb_star.ellipticity(δρ_r, r_min, R)
-    println("ε_f = $ε_f")
-    println("ε_s = $ε_s")
-    println("|ε_s - ε_f| = ", abs(ε_s - ε_f))
 
     nθ = 100
     nφ = 100
@@ -212,32 +114,172 @@ function main()
     σr1 = zeros(Float64, nr)
     σr2 = zeros(Float64, nr)
     σr3 = zeros(Float64, nr)
-    for i=1:nr
-        for j=1:nθ
-            for k = 1:nφ
-                if r_c ≤ r_g[i] && r_g[i] ≤ r_o
-                    σ2[i,j,k] = 5/(256π) * (6*sin(θ[j])^2*
-                        (3*sin(θ[j])^2*cos(2φ[k])^2 * (T1[i]/μ[i])^2
-                        +4*(3+cos(2θ[j]) - 2*sin(θ[j])^2*cos(4φ[k]))*(T2[i]/μ[i])^2
-                        )  + (35+28*cos(2θ[j]) + cos(4θ[j]) 
-                        + 8*sin(θ[j])^4*cos(4φ[k]))*(ξt[i]/r_g[i])^2 
-                    )
-                else
-                    σ2[i,j,k] = 0.0
-                end
-            end 
-        end
+
+    #coefficient for the force
+    A = 1.0
+    if(type_force == 1)
+        #force A f_i = -Aρ ∇_i (r^2 Y_lm)
+        A = 7.923362043130308e6
+        println("Type_force==1, A = ", A)
+        fr(r) =-2A*r*ρ_r(r)
+        ft(r) =-A*r*ρ_r(r)
     end
 
-    for i=1:nr
-        if r_c ≤ r_g[i] && r_g[i] ≤ r_o
-            σr1[i] = sqrt(45.0/128π) * abs(T1[i] / μ[i])
-            σr2[i] = sqrt(1215/512π) * abs(T2[i] / μ[i])
-            σr3[i] = sqrt(5.0/4π) * abs(ξt[i]/ r_g[i])
+    if(type_force == 2)
+        #force B f_i = Bρr ∇_i Y_lm
+        # fr = 0.0
+ #       # ft = Bρ 
+        A = 1.4425284668705086e10
+        println("Type_force==2, A = ", A)
+#        fr(r) =-2A*r*ρ_r(r)
+#        fr(r) = 0.0
+#        ft(r) = A*ρ_r(r)
+    end
+
+    global_ite = 0
+    max_global_ite = 3
+    for global_ite=1:max_global_ite
+    ### fluid star ###
+
+        dδϕ_dr_o = 0.0
+        dδϕ_dr_n = 0.0
+
+        δρ_r = Spline1D(r_g, δρ)
+        max_ite = 100
+        guess = 0.0
+        for ite=1:max_ite
+            δρ = Perturb_star.δρ_fluid_star(r_g, ρ, δϕ, cs2, fr, ft, nr)
+            δρ_r = Spline1D(r_g, δρ)
+            δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
+            dδϕ_dr_n = dδϕ_dr[1]
+            diff_dδϕ_dr = abs(dδϕ_dr_n - dδϕ_dr_o) / abs(dδϕ_dr_n)
+            if(ite > 3)
+                guess = (0.5*dδϕ_dr_n + 0.5*dδϕ_dr_o) 
+            end
+            println("diff = $diff_dδϕ_dr", " $dδϕ_dr_n $dδϕ_dr_o", "  guess = $guess")
+            if(diff_dδϕ_dr < 1.0e-8) 
+                println("Converge!")
+                break
+            end
+            dδϕ_dr_o = dδϕ_dr_n
+            δρ_rc = δρ_r(r_c)
+            ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
+            println("ε_f = $ε_f")
+    
+        end
+        #
+        ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
+        println(fr(0.9e6))
+        println(ρ_r(0.9e6), " ", δρ_r(0.96e6))
+    #solid crust
+
+
+        max_ite2 = 15
+
+        guess = 0.0
+        guess2 = [0.0, 0.0, 0.0]
+        init2_o = [0.0, 0.0, 0.0]
+        δρ_o = zeros(Float64, nr)
+        for ite=1:max_ite2
+            println("ite = ", ite)
+            for i=1:nr
+                if r_c < r_g[i] && r_g[i] < r_o
+                    δρ[i] = -(3ρ[i]/r_g[i] + dρ_dr[i])*ξr[i] + 3β*ρ[i]/(2r_g[i])*ξt[i] - 3ρ[i]/(4μ[i])*T1[i] 
+                else
+                    δρ[i] =  -(ρ[i]*δϕ[i] - ft(r_g[i])*r_g[i]) / cs2[i]
+                end
+            end
+
+            δρ_r     = Spline1D(r_g, δρ)
+            δϕ_r     = Spline1D(r_g, δϕ)
+            dδϕ_dr_r = Spline1D(r_g, dδϕ_dr)
+
+            T1, T2, ξr, ξt, init2 = Perturb_star.cal_ξ_T_BVP(ρ_r, dρ_dr_r, d2ρ_dr2_r, cs2_r, dcs2_dr_r, 
+            μ_r, dμ_dr_r, δϕ_r, dδϕ_dr_r, fr, ft, β2, r_c, r_o, r_g, nr, guess2)
+
+            δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
+            dδϕ_dr_n = dδϕ_dr[1]
+            diff_dδϕ_dr = abs(dδϕ_dr_n - dδϕ_dr_o) / abs(dδϕ_dr_n)
+            if(ite > 3)
+                guess = (0.5*dδϕ_dr_n + 0.5*dδϕ_dr_o) 
+                guess2 = (0.5*init2 + 0.5*init2_o)
+            end
+            println("diff = $diff_dδϕ_dr", " $dδϕ_dr_n $dδϕ_dr_o", "  guess = $guess")
+            dδϕ_dr_o =  dδϕ_dr_n
+            init2_o = init2
+            if(diff_dδϕ_dr < 1.0e-8) 
+                println("Converge!")
+                break
+            end
+            dδϕ_dr_o = dδϕ_dr_n 
+            δρ_o = δρ
+            ε_s = Perturb_star.ellipticity(δρ_r, r_min, R)
+            println("ε_f = $ε_f", " ε_s = $ε_s", " |ε_s - ε_f| = ", abs(ε_s - ε_f))
+        end
+
+        #δp
+        for i=1:nr
+            δp[i] = cs2[i] * δρ[i]
+        end
+
+        ε_s = Perturb_star.ellipticity(δρ_r, r_min, R)
+        println("ε_f = $ε_f")
+        println("ε_s = $ε_s")
+        println("|ε_s - ε_f| = ", abs(ε_s - ε_f))
+
+        for i=1:nr
+            for j=1:nθ
+                for k = 1:nφ
+                    if r_c ≤ r_g[i] && r_g[i] ≤ r_o
+                        σ2[i,j,k] = 5/(256π) * (6*sin(θ[j])^2*
+                            (3*sin(θ[j])^2*cos(2φ[k])^2 * (T1[i]/μ[i])^2
+                            +4*(3+cos(2θ[j]) - 2*sin(θ[j])^2*cos(4φ[k]))*(T2[i]/μ[i])^2
+                            )  + (35+28*cos(2θ[j]) + cos(4θ[j]) 
+                            + 8*sin(θ[j])^4*cos(4φ[k]))*(ξt[i]/r_g[i])^2 
+                        )
+                    else
+                        σ2[i,j,k] = 0.0
+                    end
+                end 
+            end
+        end
+
+        for i=1:nr
+            if r_c ≤ r_g[i] && r_g[i] ≤ r_o
+                σr1[i] = sqrt(45.0/128π) * abs(T1[i] / μ[i])
+                σr2[i] = sqrt(1215/512π) * abs(T2[i] / μ[i])
+                σr3[i] = sqrt(5.0/4π) * abs(ξt[i]/ r_g[i])
+            else
+                σr1[i] = 0.0
+                σr2[i] = 0.0
+                σr3[i] = 0.0
+            end
+        end
+
+        σ2_max = maximum(σ2)
+        #maximum strain
+        println("σ_max = ", sqrt(σ2_max))
+    
+        for i=1:nr
+            σ[i] = sqrt(maximum(σ2[i,:,:]))
+        end
+    
+        if(sqrt(σ2_max) > 0.0999 && sqrt(σ2_max) < 0.1001)
+            println("Converge! A = ", A)
+            break
         else
-            σr1[i] = 0.0
-            σr2[i] = 0.0
-            σr3[i] = 0.0
+            A = (0.1 / sqrt(σ2_max)) * A
+            println("New A = ", A)
+            #redifine the force
+#            if(type_force == 1)
+#                fr(r) =-2A*r*ρ_r(r)
+#                ft(r) =-A*r*ρ_r(r)
+#            end
+#            if(type_force == 2)
+#            
+#                fr(r) = 0.0
+#                ft(r) = A*ρ_r(r)
+#            end
         end
     end
 
@@ -256,13 +298,6 @@ function main()
     end
     close(out)
 
-    σ2_max = maximum(σ2)
-    #maximum strain
-    println("σ_max = ", sqrt(σ2_max))
-
-    for i=1:nr
-        σ[i] = sqrt(maximum(σ2[i,:,:]))
-    end
 
     #plot by using matplotlib
 

@@ -26,7 +26,7 @@ using BoundaryValueDiffEq
         S_int(r) = 4π*G*δρ_r(r) * 10r_min^(ℓ) * r^(-ℓ+1)
         S = quadgk(S_int, 10r_min, R)
         dδϕ_dr_c = - (S[1]) / (10r_min)
-        print(dδϕ_dr_c, " ", guess, "\n")
+#        print(dδϕ_dr_c, " ", guess, "\n")
         if(abs(guess) < 1.0)
             init = [0.0, dδϕ_dr_c]
         else
@@ -35,6 +35,7 @@ using BoundaryValueDiffEq
         param = ()
         rspan = (r_min, R)
         bvp = BVProblem(source, bc, init, rspan, reltol = 1.0e-10, abstol = 1.0e-10)
+
         ppo = solve(bvp, Shooting(Vern6()))
         δϕ = zeros(Float64, nr)
         dδϕ_dr = zeros(Float64, nr)
