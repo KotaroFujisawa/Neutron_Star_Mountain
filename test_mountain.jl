@@ -36,11 +36,11 @@ function main()
     r_max = 3.0e6 
 
     #for mesh size
-    reltol = 1.0e-6
-    abstol = 1.0e-6
+    reltol = 1.0e-10
+    abstol = 1.0e-10
 
     #for parameters
-    type_force = 1
+    type_force = 2
 
     #make background star (N=1 polytropic star)
     nr, R, M, r_g, ρ, p, cs2, m, dρ_dr, dp_dr, d2ρ_dr2 = (
@@ -117,13 +117,15 @@ function main()
 
     #coefficient for the force
     A = 1.0
-    if(type_force == 1)
+#    if(type_force == 1)
         #force A f_i = -Aρ ∇_i (r^2 Y_lm)
-        A = 7.923362043130308e6
-        println("Type_force==1, A = ", A)
-        fr(r) =-2A*r*ρ_r(r)
-        ft(r) =-A*r*ρ_r(r)
-    end
+#        A = 7.923362043130308e6
+#        A = 7.923378881786443e6
+#        A = 7.9652112337329695e6
+#        println("Type_force==1, A = ", A)
+#       fr(r) =-2A*r*ρ_r(r)
+#        ft(r) =-A*r*ρ_r(r)
+#    end
 
     if(type_force == 2)
         #force B f_i = Bρr ∇_i Y_lm
@@ -131,9 +133,9 @@ function main()
  #       # ft = Bρ 
         A = 1.4425284668705086e10
         println("Type_force==2, A = ", A)
-#        fr(r) =-2A*r*ρ_r(r)
-#        fr(r) = 0.0
-#        ft(r) = A*ρ_r(r)
+        fr(r) =-2A*r*ρ_r(r)
+        fr(r) = 0.0
+        ft(r) = A*ρ_r(r)
     end
 
     global_ite = 0
@@ -157,7 +159,7 @@ function main()
                 guess = (0.5*dδϕ_dr_n + 0.5*dδϕ_dr_o) 
             end
             println("diff = $diff_dδϕ_dr", " $dδϕ_dr_n $dδϕ_dr_o", "  guess = $guess")
-            if(diff_dδϕ_dr < 1.0e-8) 
+            if(diff_dδϕ_dr < 1.0e-10) 
                 println("Converge!")
                 break
             end
@@ -171,10 +173,18 @@ function main()
         ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
         println(fr(0.9e6))
         println(ρ_r(0.9e6), " ", δρ_r(0.96e6))
+
+        out = open("fluid_star.dat","w")
+        for i=1:nr
+            print(out, "$(r_g[i])  $(δρ[i])  $(δϕ[i])\n")
+        end
+        close(out)
+    
+
     #solid crust
 
 
-        max_ite2 = 15
+        max_ite2 = 50
 
         guess = 0.0
         guess2 = [0.0, 0.0, 0.0]
@@ -207,7 +217,7 @@ function main()
             println("diff = $diff_dδϕ_dr", " $dδϕ_dr_n $dδϕ_dr_o", "  guess = $guess")
             dδϕ_dr_o =  dδϕ_dr_n
             init2_o = init2
-            if(diff_dδϕ_dr < 1.0e-8) 
+            if(diff_dδϕ_dr < 1.0e-10) 
                 println("Converge!")
                 break
             end
@@ -226,6 +236,13 @@ function main()
         println("ε_f = $ε_f")
         println("ε_s = $ε_s")
         println("|ε_s - ε_f| = ", abs(ε_s - ε_f))
+
+        out = open("solid_star.dat","w")
+        for i=1:nr
+            print(out, "$(r_g[i])  $(δρ[i])  $(δϕ[i])\n")
+        end
+        close(out)
+
 
         for i=1:nr
             for j=1:nθ
@@ -264,7 +281,7 @@ function main()
             σ[i] = sqrt(maximum(σ2[i,:,:]))
         end
     
-        if(sqrt(σ2_max) > 0.0999 && sqrt(σ2_max) < 0.1001)
+        if(sqrt(σ2_max) > 0.099999 && sqrt(σ2_max) < 0.100001)
             println("Converge! A = ", A)
             break
         else
@@ -281,7 +298,11 @@ function main()
 #                ft(r) = A*ρ_r(r)
 #            end
         end
+
+    
     end
+
+
 
     out = open("sigma123.dat","w")
     for i=1:nr
