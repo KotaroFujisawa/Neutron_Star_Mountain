@@ -11,9 +11,10 @@ include("Poisson_eq.jl")
 using .Poisson_eq
 include("Perturb_star.jl")
 using .Perturb_star
-
+include("Force_density.jl")
+using .Force_density
 function main()
-    #simple NS model
+    # N = 1 polytropic NS model
     Γ = 2
     K = 42500     #cgs
     M0 = 1.989e33 #cgs solar mass
@@ -24,36 +25,41 @@ function main()
     β2 = ℓ*(ℓ+1)  #β^2 = ℓ(ℓ+1)
     β = sqrt(β2)
 
-    ρ0 = 2.185e15   #central density     r = r_min
-    ρc = 2.0e14   #core-crust boundary r = r_c
-    ρo = 2.18e8 #2.18e8   #crust-ocian boundary r = r_o 
+    ρ0 = 2.185e15 #central density at r = r_min
+    ρc = 2.0e14   #core-crust boundary at r = r_c
+    ρo = 2.18e8   #crust-ocian boundary at r = r_o 
     ρ_min = 1.0e4 #surface desnity
 
     r_min = 0.1   #minimun radius
     r_c = 0.0     #core-crust boundary
     r_o = 0.0     #crust-ocian boundary
     R   = 0.0     #stellar radius
-    r_max = 3.0e6 
+    r_max = 3.0e6 #maximum radius of the domain
 
-    #for mesh size
-    reltol = 1.0e-10
-    abstol = 1.0e-10
+    #for mesh size (accuracy) default:1.0e-12 
+    reltol = 1.0e-12
+    abstol = 1.0e-12
 
-    #for parameters
-    type_force = 2
+    # type of force density
+    type_force = 4
+    # type of bc 1:normal 2:T1=0 at r_c 3
+    type_BC = 9
+    # surface current
+    j_0 = -0.5
+    j_1 = 0.0
 
-    #make background star (N=1 polytropic star)
+    # make background star (N=1 polytropic star)
     nr, R, M, r_g, ρ, p, cs2, m, dρ_dr, dp_dr, d2ρ_dr2 = (
         Background_star.make_bg_star_p(
             K, Γ, ρ0, ρ_min, r_min, r_max,  reltol, abstol
         )
     )
-    #r_g : radial grid
+    # r_g : radial grid
 
-    #physical quantities of background star
+    # physical quantities of background star
     print("grid number = $nr, M = $(M/M0)  R = $(R/1.0e5) [km] \n")
 
-    #interpolation by spline curve
+    # interpolation using spline curve
     ρ_r     = Spline1D(r_g, ρ)
     dρ_dr_r = Spline1D(r_g, dρ_dr)    #dρ / dr
     d2ρ_dr2_r= Spline1D(r_g, d2ρ_dr2) #d^2ρ / dr^2
@@ -65,12 +71,11 @@ function main()
     end
     dcs2_dr_r = Spline1D(r_g, dcs2_dr)
 
-    #calculate r_o & r_c
+    # calculate r_o at ρc & r_c at ρo
     r_c = Background_star.cal_r_from_ρ(0.8*R,  ρc, ρ_r)
     r_o = Background_star.cal_r_from_ρ(0.95*R, ρo, ρ_r)
 
-    print("r_c = $r_c  \n")
-    print("r_o = $r_o  \n")
+    print("r_c = $r_c,  r_o = $r_o \n")
 
     out = open("rho.dat","w")
     for i=1:nr
@@ -78,8 +83,7 @@ function main()
     end
     close(out)
 
-
-    #perturbation
+    # quantities for perturbation
     δρ = zeros(Float64, nr)
     δp = zeros(Float64, nr)
     δϕ = zeros(Float64, nr)
@@ -95,63 +99,49 @@ function main()
     for i=1:nr
         μ[i] = κ*ρ[i]
     end
-
     μ_r     = Spline1D(r_g, μ)
     for i=1:nr 
         dμ_dr[i]   = derivative(μ_r, r_g[i])
     end
     dμ_dr_r   = Spline1D(r_g, dμ_dr)
 
-    nθ = 100
-    nφ = 100
+    #coefficient to normalize the force
+    A = 0.0
 
-    θ = range(0.0, stop=π,  length=nθ)
-    φ = range(0.0, stop=2π, length=nφ) 
-
-    #strain
-    σ2 = zeros(Float64, nr, nθ, nφ)
-    σ  = zeros(Float64, nr)
-    σr1 = zeros(Float64, nr)
-    σr2 = zeros(Float64, nr)
-    σr3 = zeros(Float64, nr)
-
-    #coefficient for the force
-    A = 1.0
-#    if(type_force == 1)
-        #force A f_i = -Aρ ∇_i (r^2 Y_lm)
-#        A = 7.923362043130308e6
-#        A = 7.923378881786443e6
-#        A = 7.9652112337329695e6
-#        println("Type_force==1, A = ", A)
-#       fr(r) =-2A*r*ρ_r(r)
-#        ft(r) =-A*r*ρ_r(r)
-#    end
-
-    if(type_force == 2)
-        #force B f_i = Bρr ∇_i Y_lm
-        # fr = 0.0
- #       # ft = Bρ 
-        A = 1.4425284668705086e10
-        println("Type_force==2, A = ", A)
-        fr(r) =-2A*r*ρ_r(r)
-        fr(r) = 0.0
-        ft(r) = A*ρ_r(r)
+    # set force 
+    A, fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc = (
+        Force_density.set_force_density(type_force, ρ_r, r_c, r_o, R, A, j_0, j_1)
+    )
+    m_rr_co, m_rr_cr, m_rr_oc, m_rth_co, m_rth_cr, m_rth_oc = (
+        Force_density.set_magnetic_stress(A, r_c, r_o, R, j_0, j_1)
+    )
+    out = open("force.dat","w")
+    for i=1:nr
+        if r_g[i] < r_c  # core
+            print(out, "$(r_g[i])  $(fr_co(r_g[i]))  $(ft_co(r_g[i]))\n")
+        elseif r_g[i] <= r_o # crust
+            print(out, "$(r_g[i])  $(fr_cr(r_g[i]))  $(ft_cr(r_g[i]))\n")
+        else # ocean 
+            print(out, "$(r_g[i])  $(fr_oc(r_g[i]))  $(ft_oc(r_g[i]))\n")
+        end
     end
+    close(out)
 
+    # iteration
     global_ite = 0
-    max_global_ite = 3
+    max_global_ite = 1
     for global_ite=1:max_global_ite
     ### fluid star ###
 
         dδϕ_dr_o = 0.0
         dδϕ_dr_n = 0.0
 
-        
         δρ_r = Spline1D(r_g, δρ)
-        max_ite = 100
+        max_ite1 = 100
         guess = 0.0
-        for ite=1:max_ite
-            δρ = Perturb_star.δρ_fluid_star(r_g, ρ, δϕ, cs2, fr, ft, nr)
+        for ite=1:max_ite1
+            δρ = Perturb_star.δρ_fluid_star(r_c, r_o, r_g, ρ, δϕ, cs2, 
+                fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc, nr)
             δρ_r = Spline1D(r_g, δρ)
             δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
             dδϕ_dr_n = dδϕ_dr[1]
@@ -172,8 +162,6 @@ function main()
         end
         #
         ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
-        println(fr(0.9e6))
-        println(ρ_r(0.9e6), " ", δρ_r(0.96e6))
 
         out = open("fluid_star.dat","w")
         for i=1:nr
@@ -181,11 +169,8 @@ function main()
         end
         close(out)
     
-
     #solid crust
-
-
-        max_ite2 = 50
+        max_ite2 = 100
 
         guess = 0.0
         guess2 = [0.0, 0.0, 0.0]
@@ -193,20 +178,19 @@ function main()
         δρ_o = zeros(Float64, nr)
         for ite=1:max_ite2
             println("ite = ", ite)
-            for i=1:nr
-                if r_c < r_g[i] && r_g[i] < r_o
-                    δρ[i] = -(3ρ[i]/r_g[i] + dρ_dr[i])*ξr[i] + 3β*ρ[i]/(2r_g[i])*ξt[i] - 3ρ[i]/(4μ[i])*T1[i] 
-                else
-                    δρ[i] =  -(ρ[i]*δϕ[i] - ft(r_g[i])*r_g[i]) / cs2[i]
-                end
-            end
+            δρ = Perturb_star.δρ_solid_star(r_c, r_o, r_g, ρ, dρ_dr, δϕ, cs2, 
+                fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc, ξr, ξt, T1, μ, β, nr)
 
             δρ_r     = Spline1D(r_g, δρ)
             δϕ_r     = Spline1D(r_g, δϕ)
             dδϕ_dr_r = Spline1D(r_g, dδϕ_dr)
 
+
             T1, T2, ξr, ξt, init2 = Perturb_star.cal_ξ_T_BVP(ρ_r, dρ_dr_r, d2ρ_dr2_r, cs2_r, dcs2_dr_r, 
-            μ_r, dμ_dr_r, δϕ_r, dδϕ_dr_r, fr, ft, β2, r_c, r_o, r_g, nr, guess2)
+                μ_r, dμ_dr_r, δϕ_r, dδϕ_dr_r, 
+                fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc, 
+                m_rr_co, m_rr_cr, m_rr_oc, m_rth_co, m_rth_cr, m_rth_oc,
+                β2, r_c, r_o, r_g, nr, guess2, type_BC)
 
             δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
             dδϕ_dr_n = dδϕ_dr[1]
@@ -244,66 +228,25 @@ function main()
         end
         close(out)
 
+        σ, σr1, σr2, σr3, σ2_max = Perturb_star.cal_σ(r_c, r_o, r_g, T1, T2, μ, ξr, ξt, nr)
 
-        for i=1:nr
-            for j=1:nθ
-                for k = 1:nφ
-                    if r_c ≤ r_g[i] && r_g[i] ≤ r_o
-                        σ2[i,j,k] = 5/(256π) * (6*sin(θ[j])^2*
-                            (3*sin(θ[j])^2*cos(2φ[k])^2 * (T1[i]/μ[i])^2
-                            +4*(3+cos(2θ[j]) - 2*sin(θ[j])^2*cos(4φ[k]))*(T2[i]/μ[i])^2
-                            )  + (35+28*cos(2θ[j]) + cos(4θ[j]) 
-                            + 8*sin(θ[j])^4*cos(4φ[k]))*(ξt[i]/r_g[i])^2 
-                        )
-                    else
-                        σ2[i,j,k] = 0.0
-                    end
-                end 
-            end
-        end
-
-        for i=1:nr
-            if r_c ≤ r_g[i] && r_g[i] ≤ r_o
-                σr1[i] = sqrt(45.0/128π) * abs(T1[i] / μ[i])
-                σr2[i] = sqrt(1215/512π) * abs(T2[i] / μ[i])
-                σr3[i] = sqrt(5.0/4π) * abs(ξt[i]/ r_g[i])
-            else
-                σr1[i] = 0.0
-                σr2[i] = 0.0
-                σr3[i] = 0.0
-            end
-        end
-
-        σ2_max = maximum(σ2)
-        #maximum strain
-        println("σ_max = ", sqrt(σ2_max))
-    
-        for i=1:nr
-            σ[i] = sqrt(maximum(σ2[i,:,:]))
-        end
-    
         if(sqrt(σ2_max) > 0.099999 && sqrt(σ2_max) < 0.100001)
             println("Converge! A = ", A)
             break
         else
             A = (0.1 / sqrt(σ2_max)) * A
             println("New A = ", A)
-            #redifine the force
-#            if(type_force == 1)
-#                fr(r) =-2A*r*ρ_r(r)
-#                ft(r) =-A*r*ρ_r(r)
-#            end
-#            if(type_force == 2)
-#            
-#                fr(r) = 0.0
-#                ft(r) = A*ρ_r(r)
-#            end
+            A, fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc = (
+                Force_density.set_force_density(type_force, ρ_r, r_c, r_o, R, A, j_0, j_1)
+            )
+            m_rr_co, m_rr_cr, m_rr_oc, m_rth_co, m_rth_cr, m_rth_oc = (
+                Force_density.set_magnetic_stress(A, r_c, r_o, R, j_0, j_1)
+            )
         end
 
-    
     end
 
-
+    σ, σr1, σr2, σr3, σ2_max = Perturb_star.cal_σ(r_c, r_o, r_g, T1, T2, μ, ξr, ξt, nr)
 
     out = open("sigma123.dat","w")
     for i=1:nr
@@ -311,18 +254,36 @@ function main()
     end
     close(out)
 
+    M1 = zeros(Float64, nr)
+    M2 = zeros(Float64, nr)
+
+    for i=1:nr
+        if r_g[i] < r_c  # core
+            M1[i] = m_rr_co(r_g[i])
+            M2[i] = m_rth_co(r_g[i])
+            if r_g[i] < 0.5*r_c
+                M2[i] = 0.0
+            end
+        elseif r_g[i] <= r_o # crust
+            M1[i] = m_rr_cr(r_g[i])
+            M2[i] = m_rth_cr(r_g[i])
+        else # ocean 
+            M1[i] = m_rr_oc(r_g[i])
+            M2[i] = m_rth_oc(r_g[i])
+        end
+    end
+
     out = open("T1T2.dat","w")
     for i=1:nr
-        tmp_T1 =( ((ρ[i]*δϕ[i] - ft(r_g[i])*r_g[i]) - 
-        cs2[i]*( (3ρ[i]/r_g[i] + dρ_dr[i])*ξr[i] - 3β*ρ[i]/2r_g[i]*ξt[i]))
-        / (1 + 3cs2[i]*ρ[i]/(4μ[i])))
-        print(out, "$(r_g[i])  $(δp[i] - T1[i]) $(δp[i])  $(T1[i])  $(tmp_T1)  $(T2[i]) \n")
+#        tmp_T1 =( ((ρ[i]*δϕ[i] - ft(r_g[i])*r_g[i]) - 
+#        cs2[i]*( (3ρ[i]/r_g[i] + dρ_dr[i])*ξr[i] - 3β*ρ[i]/2r_g[i]*ξt[i]))
+#        / (1 + 3cs2[i]*ρ[i]/(4μ[i])))
+#        print(out, "$(r_g[i])  $(δp[i] - T1[i]) $(δp[i])  $(T1[i])  $(tmp_T1)  $(T2[i]) \n")
+        print(out, "$(r_g[i])  $(δp[i] - T1[i]) $(δp[i])  $(T1[i])  $(T2[i])  $(δp[i] - T1[i] - M1[i]) $(T2[i] + M2[i]) $(M1[i])  $(M2[i])\n")
     end
     close(out)
 
-
     #plot by using matplotlib
-
     fig, ax = plt.subplots()
     ax.plot(r_g, T1)
     ax.grid(true)
@@ -347,6 +308,39 @@ function main()
     ax.set_xlim(r_c, r_o)
     plt.savefig("T2.pdf")
     plt.close()
+
+    fig, ax = plt.subplots()
+    ax.plot(r_g, δp - T1 - M1)
+    ax.grid(true)
+    ax.set_ylabel("δp - T1 - M1")
+    ax.set_xlim(0.0, R)
+    plt.savefig("deltap_T1_2.pdf")
+    plt.close()
+
+    fig, ax = plt.subplots()
+    ax.plot(r_g, T2 + M2)
+    ax.grid(true)
+    ax.set_ylabel("T2 + M_rth")
+    ax.set_xlim(0.5r_c, R)
+    plt.savefig("T2_2.pdf")
+    plt.close()
+
+    fig, ax = plt.subplots()
+    ax.plot(r_g, M1)
+    ax.grid(true)
+    ax.set_ylabel("M1")
+    ax.set_xlim(0.0, R)
+    plt.savefig("M1.pdf")
+    plt.close()
+
+    fig, ax = plt.subplots()
+    ax.plot(r_g, M2)
+    ax.grid(true)
+    ax.set_ylabel("M2")
+    ax.set_xlim(0.5r_c, R)
+    plt.savefig("M2.pdf")
+    plt.close()
+
 
     fig, ax = plt.subplots()
     ax.plot(r_g, ξr)
@@ -384,7 +378,7 @@ function main()
     ax.plot(r_g, σ)
     ax.grid(true)
     ax.set_ylabel("|σ|")
-    ax.set_xlim(0.99r_o, r_o)
+    ax.set_xlim(9.98e5, r_o)
     plt.savefig("sigma.pdf")
     plt.close()
 
@@ -410,5 +404,4 @@ function main()
     plt.close()
 
 end
-
-main()
+main()  
