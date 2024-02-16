@@ -15,11 +15,13 @@ using BoundaryValueDiffEq
             β2 = ℓ*(ℓ+1)
             du[1] = u[2]
             du[2] = -2/r*u[2] + β2/r^2*u[1] + 4π*G*δρ_r(r)
+            nothing
         end
     
         function bc(res, sol, param, r)
             res[1] = sol(r_min)[1]
             res[2] = (-sol(R)[2] / ((ℓ+1) / (R) * sol(R)[1]) - 1.0)
+            nothing
         end
 
         #initial guess
@@ -36,6 +38,7 @@ using BoundaryValueDiffEq
         rspan = (r_min, R)
         bvp = BVProblem(source, bc, init, rspan, reltol = 1.0e-10, abstol = 1.0e-10)
 
+#        ppo = solve(bvp, Shooting(Vern6()), save_everystep = false)
         ppo = solve(bvp, Shooting(Vern6()))
         δϕ = zeros(Float64, nr)
         dδϕ_dr = zeros(Float64, nr)

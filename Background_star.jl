@@ -22,6 +22,7 @@ using Dierckx
             ρ = (abs(p)/K)^(1/Γ) 
             du[1] = 4π * r^2 * ρ
             du[2] = -ρ * G * m / r^2
+            nothing
         end
 
         p0 = K*ρ0^Γ

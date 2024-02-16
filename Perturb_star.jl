@@ -42,7 +42,7 @@ using BoundaryValueDiffEq
         return ε
     end
 
-    function cal_ξ_T_BVP(ρ, dρ_dr, d2ρ_dr2, cs2, dcs2_dr, 
+    function cal_ξ_T_BVP!(ρ, dρ_dr, d2ρ_dr2, cs2, dcs2_dr, 
         μ, dμ_dr, δϕ, dδϕ_dr, fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc,
         m_rr_co, m_rr_cr, m_rr_oc, m_rth_co, m_rth_cr, m_rth_oc,
         β2, r_c, r_o, r_g, nr, guess2, type_BC)
@@ -76,6 +76,7 @@ using BoundaryValueDiffEq
                 + (3cs2(r)*ρ(r) / 2 + (1-2/β2)*μ(r))*β/r^2*ξt
                 + (1/2 - 3cs2(r)*ρ(r)/(4μ(r)))*T1/r - 3T2/r
             )
+            nothing
         end
             
         # a: core-crsut boundary b: crust-ocean boundary
@@ -99,7 +100,9 @@ using BoundaryValueDiffEq
             res[2] = (T1a - sol(r_c)[3]) 
             res[3] = T2b 
             res[4] = (T1b - sol(r_o)[3])
+            nothing
 #            println(res[3])
+#            println("res = $res")
         end
 
         # δp - T1 = 0 at core-crust boundary
@@ -122,6 +125,7 @@ using BoundaryValueDiffEq
             res[2] = (T1a - sol(r_c)[3])
             res[3] = T2b 
             res[4] = (T1b - sol(r_o)[3])
+            nothing
         end
 
         function bc3(res, sol, param, r)
@@ -145,9 +149,8 @@ using BoundaryValueDiffEq
             res[2] = (T1a - sol(r_c)[3]) 
             res[3] = T2b - sol(r_o)[4]
             res[4] = (T1b - sol(r_o)[3])
-
-#            println(T1a, " ", sol(r_c)[3], " ", T2a, " ", sol(r_c)[4])
-#            println(T1b, " ", sol(r_o)[3], " ", T2b, " ",  sol(r_o)[4])
+            nothing
+#            println("res = $res")
         end
 
         rspan = (r_c, r_o)
@@ -185,9 +188,12 @@ using BoundaryValueDiffEq
         if(type_BC==3)
             bvp  = BVProblem(source, bc3, init, rspan)
         end
-        # for magentic field
+#        ans  = solve(bvp, Shooting(Vern7()))
+
 #        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-5, abstol = 1.0e-5)
-        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-7, abstol = 1.0e-7)
+        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-8, abstol = 1.0e-8)
+#        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-7, abstol = 1.0e-7, save_everystep = false)
+#        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-8, abstol = 1.0e-8)
 #        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-9, abstol = 1.0e-9)
 
         ξr_1 = ans(r_c)[1]
@@ -212,36 +218,19 @@ using BoundaryValueDiffEq
             end
         end
 
-        println( (-(ρ(r_c)*δϕ(r_c)-ft_co(r_c)*r_c) - m_rr_co(r_c)), " ",  
-        (cs2(r_c)*( -(3ρ(r_c)/r_c + dρ_dr(r_c))*ans(r_c)[1] + 3β*ρ(r_c)/2r_c*ans(r_c)[2] - 3ρ(r_c)*ans(r_c)[3]/(4μ(r_c))))
-        -ans(r_c)[3]-m_rr_cr(r_c))
-
-        for i = 1:nr
-            if(r_g[i] ≥ r_c)
-                println( (-(ρ(r_g[i-1])*δϕ(r_g[i-1])-ft_co(r_g[i-1])*r_g[i-1]) - m_rr_co(r_g[i-1])), " ",  
-                (cs2(r_g[i])*( -(3ρ(r_g[i])/r_g[i] + dρ_dr(r_g[i]))*ξr_g[i] + 3β*ρ(r_g[i])/2r_g[i]*ξt_g[i] 
-                - 3ρ(r_g[i])*T1_g[i]/(4μ(r_g[i])))) - T1_g[i] - m_rr_cr(r_g[i]))
-            break
-            end
-        end
-
         return T1_g, T2_g, ξr_g, ξt_g, init2
     end
     
     
-    function cal_σ(r_c, r_o, r_g, T1, T2, μ, ξr, ξt, nr)
+    function cal_σ!(σ, σr1, σr2, σr3, r_c, r_o, r_g, T1, T2, μ, ξr, ξt, nr)
 
         nθ = 100
         nφ = 100
     
+        σ2  = zeros(Float64, nr, nθ, nφ)
+
         θ = range(0.0, stop=π,  length=nθ)
         φ = range(0.0, stop=2π, length=nφ)
-
-        σ2 = zeros(Float64, nr, nθ, nφ)
-        σ  = zeros(Float64, nr)
-        σr1 = zeros(Float64, nr)
-        σr2 = zeros(Float64, nr)
-        σr3 = zeros(Float64, nr)
 
         for i=1:nr
             for j=1:nθ
@@ -280,7 +269,7 @@ using BoundaryValueDiffEq
             σ[i] = sqrt(maximum(σ2[i,:,:]))
         end
 
-        return σ, σr1, σr2, σr3, σ2_max
+        return σ2_max
 
     end
 end

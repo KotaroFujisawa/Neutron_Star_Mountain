@@ -6,7 +6,8 @@ module Force_density
         if(type_force==1)
             if(A == 0.0)
 #                A = 7.9652112337329695e6
-                A = 7.777790150771358e6
+#                A = 7.777790150771358e6
+                A = 7.812039073225561e6
             end
             println("Type_force==$type_force, A = $A")
             fr1(r) =-2A*r*ρ_r(r)
@@ -155,6 +156,39 @@ module Force_density
             ft9_oc(r) = A*8*(-3*R*(2*R^2 - π^2*r^2)*sin(π*r/R) + 3*j_0*r_c^3 + 3*j_1*r_o^3 + π*r*(6*R^2*cos(π*r/R) + π^2*r^2))*sin(π*r/R)/(9*r^3)
 
             return A, fr9_co, fr9_cr, fr9_oc, ft9_co, ft9_cr, ft9_oc
+        end
+    
+    # with current layer
+        if(type_force == 10)
+            if(A == 0.0)
+                A = 2.2952271024565947e24
+            end
+        
+            println("Type_force==$type_force, A = $A")
+
+            j_2 = -1.0e-12
+            h = 4.0e4
+
+            fr10_co(r) = A*8*(3*R*(2*R^2 + pi^2*r^2)*sin(pi*r/R) + 8*h*j_2*r^3 - 2*pi^2*r^2*(3*R*sin(pi*r/R) - pi*r) - 3*pi*r*(2*R^2 - pi^2*r^2)*cos(pi*r/R))*sin(pi*r/R)/(9*r^3)
+            function fr10_cr(r)
+                if(r ≤ r_c+2h)
+                    return (A*2*(h^2*(60*R*(2*R^2 + pi^2*r^2)*sin(pi*r/R) + pi^2*r^2*(-120*R*sin(pi*r/R) + 40*pi*r) - 60*pi*r*(2*R^2 - pi^2*r^2)*cos(pi*r/R)) + 60*j_2*r^3*(4*h^3 - 3*h*r^2 + 6*h*r*r_c - 3*h*r_c^2 + r^3 - 3*r^2*r_c + 3*r*r_c^2 - r_c^3) - j_2*(80*h^3*r^3 - 36*h*r^5 + 90*h*r^4*r_c - 60*h*r^3*r_c^2 + 6*h*r_c^5 + 10*r^6 - 36*r^5*r_c + 45*r^4*r_c^2 - 20*r^3*r_c^3 + r_c^6))*(4*R*h^2*j_2*r - 4*R*j_2*r*(h - r + r_c)^2 + h^2*pi^3*sin(pi*r/R))/(45*h^4*pi^3*r^3))
+                else
+                    return A*8*(15*R*(2*R^2 + pi^2*r^2)*sin(pi*r/R) - 4*h*j_2*(8*h^3 + 18*h^2*r_c + 15*h*r_c^2 + 5*r_c^3) - 10*pi^2*r^2*(3*R*sin(pi*r/R) - pi*r) - 15*pi*r*(2*R^2 - pi^2*r^2)*cos(pi*r/R))*sin(pi*r/R)/(45*r^3)
+                end
+            end
+            fr10_oc(r) = A*8*(15*R*(2*R^2 + pi^2*r^2)*sin(pi*r/R) - 4*h*j_2*(8*h^3 + 18*h^2*r_c + 15*h*r_c^2 + 5*r_c^3) - 10*pi^2*r^2*(3*R*sin(pi*r/R) - pi*r) - 15*pi*r*(2*R^2 - pi^2*r^2)*cos(pi*r/R))*sin(pi*r/R)/(45*r^3)
+
+            ft10_co(r) = A*8*(-3*R*(2*R^2 - pi^2*r^2)*sin(pi*r/R) + 4*h*j_2*r^3 + pi*r*(6*R^2*cos(pi*r/R) + pi^2*r^2))*sin(pi*r/R)/(9*r^3)
+            function ft10_cr(r)
+               if(r ≤ r_c+2h)
+                    return (A*2*(20*h^2*(-3*R*(2*R^2 - pi^2*r^2)*sin(pi*r/R) + pi*r*(6*R^2*cos(pi*r/R) + pi^2*r^2)) + j_2*(80*h^3*r^3 - 36*h*r^5 + 90*h*r^4*r_c - 60*h*r^3*r_c^2 + 6*h*r_c^5 + 10*r^6 - 36*r^5*r_c + 45*r^4*r_c^2 - 20*r^3*r_c^3 + r_c^6))*(4*R*h^2*j_2*r - 4*R*j_2*r*(h - r + r_c)^2 + h^2*pi^3*sin(pi*r/R))/(45*h^4*pi^3*r^3))
+                else
+                    return A*8*(-15*R*(2*R^2 - pi^2*r^2)*sin(pi*r/R) + 4*h*j_2*(8*h^3 + 18*h^2*r_c + 15*h*r_c^2 + 5*r_c^3) + 5*pi*r*(6*R^2*cos(pi*r/R) + pi^2*r^2))*sin(pi*r/R)/(45*r^3)
+                end
+            end
+            ft10_oc(r) = A*8*(-15*R*(2*R^2 - pi^2*r^2)*sin(pi*r/R) + 4*h*j_2*(8*h^3 + 18*h^2*r_c + 15*h*r_c^2 + 5*r_c^3) + 5*pi*r*(6*R^2*cos(pi*r/R) + pi^2*r^2))*sin(pi*r/R)/(45*r^3)
+            return A, fr10_co, fr10_cr, fr10_oc, ft10_co, ft10_cr, ft10_oc
         end
 
     end
