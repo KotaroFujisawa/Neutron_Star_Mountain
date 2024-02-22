@@ -190,8 +190,9 @@ using BoundaryValueDiffEq
         end
 #        ans  = solve(bvp, Shooting(Vern7()))
 
-#        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-5, abstol = 1.0e-5)
-        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-8, abstol = 1.0e-8)
+    #    ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-5, abstol = 1.0e-5) 
+        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-6, abstol = 1.0e-6)
+#        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-7, abstol = 1.0e-7)
 #        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-7, abstol = 1.0e-7, save_everystep = false)
 #        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-8, abstol = 1.0e-8)
 #        ans  = solve(bvp, Shooting(Vern6()), reltol = 1.0e-9, abstol = 1.0e-9)

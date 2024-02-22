@@ -1,13 +1,13 @@
 module Force_density
 
-    function set_force_density(type_force, ρ_r, r_c, r_o, R, A, j_0, j_1)
+    function set_force_density(type_force, ρ_r, dρ_dr_r, r_c, r_o, R, A, j_0, j_1)
 
         # force A f_i = -Aρ ∇_i (r^2 Y_lm) Gittins et al. (2021)
         if(type_force==1)
             if(A == 0.0)
 #                A = 7.9652112337329695e6
 #                A = 7.777790150771358e6
-                A = 7.812039073225561e6
+                A = 7.811899165291698e6
             end
             println("Type_force==$type_force, A = $A")
             fr1(r) =-2A*r*ρ_r(r)
@@ -36,7 +36,7 @@ module Force_density
         # termanl mountain Gittins et al. (2021)
         if(type_force == 3)
             if(A == 0.0)
-                A = 10.2674122401146829
+                A = 294.4581220856396
             end
             println("Type_force==$type_force, A = $A")
             fr3(r) = -A * (2*r * ρ_r(r) + r^2 * dρ_dr_r(r))
@@ -47,7 +47,7 @@ module Force_density
         # force B f_i = Bρr ∇_i Y_lm in Morales & Horowitz (2022)
         if(type_force == 4)
             if(A==0.0)
-                A = 1.402804452107672e10
+                A = 1.4084516548635849e10
             end
             println("Type_force==$type_force, A = $A")
             fr4(r) = 0.0
@@ -103,8 +103,8 @@ module Force_density
         #        A = 12.027155420618188      # A_sol = 0.0,  A_irr = 1.0
         #        A = 0.026163232718820248    # A_sol = 0.1,  A_irr = 0.9
         println("Type_force==$type_force, A = $A")
-            A_sol = 0.5
-            A_irr = 0.5
+            A_irr = j_0
+            A_sol = j_1
             fr7(r) = -A * ρ_r(r) * ( A_irr * (3 * r^2) + A_sol * (6 * r^2))
             ft7(r) = -A * ρ_r(r) * ( A_irr * (r^2)     + A_sol * (4 * r^2))
 
@@ -126,8 +126,20 @@ module Force_density
             return A, fr8, fr8, fr8, ft8, ft8, ft8
         end
 
-        # Purely poloidal field with surface current at core-crust boundary
+        # Purely poloidal field in non-barotropic 
         if(type_force == 9)
+            if(A == 0.0)
+                A = 4.0735347607741e24
+            end
+            println("Type_force==$type_force, A = $A")
+            fr9(r) = A/(16π)*(1575*(r/R)^7 - 4515*(r/R)^5 + 4165(r/R)^3 - 1225(r/R))
+            ft9(r) = A/(32π)*(525*(r/R)^7 - 1995*(r/R)^5 + 2695*(r/R)^3 - 1225(r/R))
+            return A, fr9, fr9, fr9, ft9, ft9, ft9
+        end
+
+
+        # Purely poloidal field with surface current at core-crust boundary
+        if(type_force == 19)
             if(A == 0.0)
                 A = 2.2952271024565947e24
             end
@@ -148,18 +160,18 @@ module Force_density
             println("Type_force==$type_force, A = $A")
  #           println("j_0 = $j_0, j_1 = $j_1")
 
-            fr9_co(r) = A*8*(3*R*(2*R^2 + π^2*r^2)*sin(π*r/R) - 2*π^2*r^2*(3*R*sin(π*r/R) - π*r) - 3*π*r*(2*R^2 - π^2*r^2)*cos(π*r/R) + 6*r^3*(j_0 + j_1))*sin(π*r/R)/(9*r^3)
-            fr9_cr(r) = A*8*(6*R^3*sin(π*r/R) - 6*R^2*π*r*cos(π*r/R) - 3*R*π^2*r^2*sin(π*r/R) - 3*j_0*r_c^3 + 6*j_1*r^3 + 3*π^3*r^3*cos(π*r/R) + 2*π^3*r^3)*sin(π*r/R)/(9*r^3)
-            fr9_oc(r) = A*8*(6*R^3*sin(π*r/R) - 6*R^2*π*r*cos(π*r/R) - 3*R*π^2*r^2*sin(π*r/R) - 3*j_0*r_c^3 - 3*j_1*r_o^3 + 3*π^3*r^3*cos(π*r/R) + 2*π^3*r^3)*sin(π*r/R)/(9*r^3)
-            ft9_co(r) = A*8*(-3*R*(2*R^2 - π^2*r^2)*sin(π*r/R) + π*r*(6*R^2*cos(π*r/R) + π^2*r^2) + 3*r^3*(j_0 + j_1))*sin(π*r/R)/(9*r^3)
-            ft9_cr(r) = A*8*(-3*R*(2*R^2 - π^2*r^2)*sin(π*r/R) + 3*j_0*r_c^3 + 3*j_1*r^3 + π*r*(6*R^2*cos(π*r/R) + π^2*r^2))*sin(π*r/R)/(9*r^3)
-            ft9_oc(r) = A*8*(-3*R*(2*R^2 - π^2*r^2)*sin(π*r/R) + 3*j_0*r_c^3 + 3*j_1*r_o^3 + π*r*(6*R^2*cos(π*r/R) + π^2*r^2))*sin(π*r/R)/(9*r^3)
+            fr19_co(r) = A*8*(3*R*(2*R^2 + π^2*r^2)*sin(π*r/R) - 2*π^2*r^2*(3*R*sin(π*r/R) - π*r) - 3*π*r*(2*R^2 - π^2*r^2)*cos(π*r/R) + 6*r^3*(j_0 + j_1))*sin(π*r/R)/(9*r^3)
+            fr19_cr(r) = A*8*(6*R^3*sin(π*r/R) - 6*R^2*π*r*cos(π*r/R) - 3*R*π^2*r^2*sin(π*r/R) - 3*j_0*r_c^3 + 6*j_1*r^3 + 3*π^3*r^3*cos(π*r/R) + 2*π^3*r^3)*sin(π*r/R)/(9*r^3)
+            fr19_oc(r) = A*8*(6*R^3*sin(π*r/R) - 6*R^2*π*r*cos(π*r/R) - 3*R*π^2*r^2*sin(π*r/R) - 3*j_0*r_c^3 - 3*j_1*r_o^3 + 3*π^3*r^3*cos(π*r/R) + 2*π^3*r^3)*sin(π*r/R)/(9*r^3)
+            ft19_co(r) = A*8*(-3*R*(2*R^2 - π^2*r^2)*sin(π*r/R) + π*r*(6*R^2*cos(π*r/R) + π^2*r^2) + 3*r^3*(j_0 + j_1))*sin(π*r/R)/(9*r^3)
+            ft19_cr(r) = A*8*(-3*R*(2*R^2 - π^2*r^2)*sin(π*r/R) + 3*j_0*r_c^3 + 3*j_1*r^3 + π*r*(6*R^2*cos(π*r/R) + π^2*r^2))*sin(π*r/R)/(9*r^3)
+            ft19_oc(r) = A*8*(-3*R*(2*R^2 - π^2*r^2)*sin(π*r/R) + 3*j_0*r_c^3 + 3*j_1*r_o^3 + π*r*(6*R^2*cos(π*r/R) + π^2*r^2))*sin(π*r/R)/(9*r^3)
 
-            return A, fr9_co, fr9_cr, fr9_oc, ft9_co, ft9_cr, ft9_oc
+            return A, fr19_co, fr19_cr, fr19_oc, ft19_co, ft19_cr, ft19_oc
         end
     
     # with current layer
-        if(type_force == 10)
+        if(type_force == 20)
             if(A == 0.0)
                 A = 2.2952271024565947e24
             end

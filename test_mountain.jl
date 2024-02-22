@@ -55,12 +55,13 @@ function main()
     ε_f = 0.0     # ellpiticity for fluid star
     ε_s = 0.0     # ellpiticity for solid star
     # type of force density
-    type_force = 1
+    type_force = 7
     # type of bc 1:normal 3: surface current model
     type_BC = 1
-    # coefficients of surface current j_0: core-crsut, j_1: crust-ocean
-    j_0 =  1.0e-5
-    j_1 =  0.0e0
+    # coefficients for surface current j_0: core-crsut, j_1: crust-ocean
+    # coefficients for solenoidal-irrotational force j_0: sol, j_1: irr 
+    j_0 =  0.9999e0
+    j_1 =  0.0001e0
     # make background star (N=1 polytropic star)
     nr, R, M, r_g, ρ, p, cs2, m, dρ_dr, dp_dr, d2ρ_dr2 = (
         Background_star.make_bg_star_p(
@@ -129,7 +130,7 @@ function main()
 
     # set force 
     A, fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc = (
-        Force_density.set_force_density(type_force, ρ_r, r_c, r_o, R, A, j_0, j_1)
+        Force_density.set_force_density(type_force, ρ_r, dρ_dr_r, r_c, r_o, R, A, j_0, j_1)
     )
     m_rr_co, m_rr_cr, m_rr_oc, m_rth_co, m_rth_cr, m_rth_oc = (
         Force_density.set_magnetic_stress(A, r_c, r_o, R, j_0, j_1)
@@ -247,7 +248,7 @@ function main()
 
             # set force
             A, fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc = (
-                Force_density.set_force_density(type_force, ρ_r, r_c, r_o, R, A, j_0, j_1)
+                Force_density.set_force_density(type_force, ρ_r, dρ_dr_r, r_c, r_o, R, A, j_0, j_1)
                 )
             m_rr_co, m_rr_cr, m_rr_oc, m_rth_co, m_rth_cr, m_rth_oc = (
                 Force_density.set_magnetic_stress(A, r_c, r_o, R, j_0, j_1)
@@ -256,7 +257,6 @@ function main()
 
     end
 
-    return 0
     σ2_max = Perturb_star.cal_σ!(σ, σr1, σr2, σr3, r_c, r_o, r_g, T1, T2, μ, ξr, ξt, nr)
 
     for i=1:nr
@@ -445,4 +445,3 @@ function main()
 
 end
 main()
-
