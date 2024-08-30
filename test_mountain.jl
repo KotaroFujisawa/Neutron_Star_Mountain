@@ -3,7 +3,10 @@ using Plots
 using DifferentialEquations
 using Dierckx
 using QuadGK
+using Printf
 using PyCall
+using Conda
+#Conda.add("matplotlib")
 @pyimport matplotlib.pyplot as plt
 
 include("Background_star.jl")
@@ -59,9 +62,9 @@ function main()
     # type of bc 1:normal 3: surface current model
     type_BC = 1
     # coefficients for surface current j_0: core-crsut, j_1: crust-ocean
-    # coefficients for solenoidal-irrotational force j_0: sol, j_1: irr 
-    j_0 =  0.9999e0
-    j_1 =  0.0001e0
+    # coefficients for solenoidal-irrotational force j_0: irr, j_1: sol 
+    j_0 =  0.0e0
+    j_1 =  1.0e0
     # make background star (N=1 polytropic star)
     nr, R, M, r_g, ρ, p, cs2, m, dρ_dr, dp_dr, d2ρ_dr2 = (
         Background_star.make_bg_star_p(
@@ -94,6 +97,7 @@ function main()
     δρ = zeros(Float64, nr)
     δρ_f = zeros(Float64, nr)
     δp = zeros(Float64, nr)
+    δϕ_f = zeros(Float64, nr)
     δϕ = zeros(Float64, nr)
     dδϕ_dr = zeros(Float64, nr)
 
@@ -150,7 +154,7 @@ function main()
 
     # iteration
     global_ite = 0
-    max_global_ite = 100
+    max_global_ite = 30
     max_ite1 = 100
     max_ite2 = 100
 
@@ -163,10 +167,10 @@ function main()
         δρ_r = Spline1D(r_g, δρ_f)
         guess = 0.0
         for ite=1:max_ite1
-            δρ_f = Perturb_star.δρ_fluid_star(r_c, r_o, r_g, ρ, δϕ, cs2, 
+            δρ_f = Perturb_star.δρ_fluid_star(r_c, r_o, r_g, ρ, δϕ_f, cs2, 
                 fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc, nr)
             δρ_r = Spline1D(r_g, δρ_f)
-            δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
+            δϕ_f, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
             dδϕ_dr_n = dδϕ_dr[1]
             diff_dδϕ_dr = abs(dδϕ_dr_n - dδϕ_dr_o) / abs(dδϕ_dr_n)
             if(ite > 3)
@@ -178,7 +182,6 @@ function main()
                 break
             end
             dδϕ_dr_o = dδϕ_dr_n
-            δρ_rc = δρ_r(r_c)
             ε_f = Perturb_star.ellipticity(δρ_r, r_min, R)
             println("ε_f = $ε_f")
     
@@ -191,6 +194,7 @@ function main()
         guess2 = [0.0, 0.0, 0.0]
         init2_o = [0.0, 0.0, 0.0]
         δρ_o = zeros(Float64, nr)
+        δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
         for ite=1:max_ite2
             println("ite = ", ite)
 
@@ -243,7 +247,11 @@ function main()
             println("Converge! A = ", A)
             break
         else
-            A = (0.1 / sqrt(σ2_max)) * A
+            if(global_ite ≤ 3)
+                A = (0.1 / sqrt(σ2_max)) * A
+            else
+                A = (A + (0.1 / sqrt(σ2_max)) * A)*0.5
+            end
             println("New A = ", A)
 
             # set force
@@ -281,20 +289,27 @@ function main()
     abs_eps = abs(ε_s - ε_f)
     σ_max = sqrt(σ2_max)
 
-    out = open("result.dat", "w")
+    out = open("result2.dat", "w")
     println(out, "#nr = $nr, M = $(M/M0) Mo,  R = $(R/1.0e5)[km], r_c = $r_c,  r_o = $r_o")
     println(out, "#ρc = $ρc, ρo = $ρo, ρ_min = $ρ_min") 
     println(out, "#Forcetype = $(type_force), A = $(A), j_0 = $j_0, j_1 = $j_1") 
     println(out, "#ε_f = $(ε_f), ε_s = $(ε_s), |ε_s - ε_f| = $(abs_eps), σ_max = $(σ2_max)") 
 
-    print(out, "#1(r_g[i]) 2(ρ[i]) 3(fr_g[i]) 4(ft_g[i])")
-    print(out, " 5(δρ[i]) 6(δp[i]) 7(δϕ[i]) 8(M1[i]) 9(M2[i]) 10(ξr[i]) 11(ξt[i])")
-    print(out, " 12(T1[i]) 13(T2[i]) 14(σ[i]) 15(σr1[i]) 16(σr2[i]) 17(σr3[i]) \n")
+
+
+    @printf(out,   "%21s %21s %21s %21s %21s %21s %21s", "1(r_g[i])", "2(ρ[i])", "3(dρ_dr[i])", "4(cs2[i])", "5(μ[i])", "6(fr_g[i])", "7(ft_g[i])")
+    @printf(out,   " %21s %21s %21s %21s %21s %21s %21s", "8(δρ_f[i])", "9(δϕ_f[i])", "10(δρ[i])", "11(δϕ[i])","12(M2[i])","13(ξr[i])","14(ξt[i])")
+    @printf(out,   " %21s %21s %21s %21s %21s %21s \n", "15(T1[i])", "16(T2[i])", "17(σ[i])", "18(σr1[i])", "19(σr2[i])", "20(σr3[i])")
+
 
     for i=1:nr
-        print(out, "$(r_g[i]) $(ρ[i]) $(fr_g[i]) $(ft_g[i])")
-        print(out, " $(δρ[i]) $(δp[i]) $(δϕ[i]) $(M1[i]) $(M2[i]) $(ξr[i]) $(ξt[i])")
-        print(out, " $(T1[i]) $(T2[i]) $(σ[i]) $(σr1[i]) $(σr2[i]) $(σr3[i]) \n")
+        @printf(out, "%.15e %.15e %.15e %.15e %.15e %.15e %.15e", r_g[i], ρ[i], dρ_dr[i], cs2[i], μ[i], fr_g[i], ft_g[i])
+        @printf(out, " %.15e %.15e %.15e %.15e %.15e %.15e %.15e", δρ_f[i], δϕ_f[i], δρ[i], δϕ[i], M2[i], ξr[i], ξt[i])
+        @printf(out, " %.15e %.15e %.15e %.15e %.15e %.15e \n", T1[i], T2[i], σ[i],  σr1[i], σr2[i], σr3[i])
+
+        #        print(out, "$(r_g[i]) $(ρ[i]) $(fr_g[i]) $(ft_g[i])")
+#        print(out, " $(δρ[i]) $(δp[i]) $(δϕ[i]) $(M1[i]) $(M2[i]) $(ξr[i]) $(ξt[i])")
+#        print(out, " $(T1[i]) $(T2[i]) $(σ[i]) $(σr1[i]) $(σr2[i]) $(σr3[i]) \n")
     end
     close(out)
 #    out = open("T1T2.dat","w")

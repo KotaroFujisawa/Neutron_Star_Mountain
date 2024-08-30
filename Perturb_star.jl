@@ -3,6 +3,7 @@ using Dierckx
 using QuadGK
 using DifferentialEquations
 using BoundaryValueDiffEq
+using ForwardDiff
 
     function δρ_fluid_star(r_c, r_o, r_g, ρ, δϕ, cs2, 
         fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc, nr)

@@ -3,11 +3,13 @@ using DifferentialEquations
 using Dierckx
 using QuadGK
 using BoundaryValueDiffEq
+using ForwardDiff
 
     function Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
         G = 6.6743e-8 #cgs
         ϵ = 1.0e-6
     
+        
         #ℓ = m = 2 Poisson
         function source(du, u, param, r)
     #        δϕ   = u[1]
