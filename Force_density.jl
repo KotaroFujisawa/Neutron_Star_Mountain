@@ -47,7 +47,7 @@ module Force_density
         # force B f_i = Bρr ∇_i Y_lm in Morales & Horowitz (2022)
         if(type_force == 4)
             if(A==0.0)
-                A = 1.4084516548635849e10
+                A = 1.4086951056556168e10
             end
             println("Type_force==$type_force, A = $A")
             fr4(r) = 0.0

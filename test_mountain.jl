@@ -5,7 +5,7 @@ using Dierckx
 using QuadGK
 using Printf
 using PyCall
-using Conda
+#using Conda
 #Conda.add("matplotlib")
 @pyimport matplotlib.pyplot as plt
 
@@ -52,13 +52,13 @@ function main()
     reltol = 1.0e-12
     abstol = 1.0e-12
 
-    # convergence criterion
+    # convergence criterion for main loop
     eps_c = 1.0e-10
 
     ε_f = 0.0     # ellpiticity for fluid star
     ε_s = 0.0     # ellpiticity for solid star
     # type of force density
-    type_force = 7
+    type_force = 1
     # type of bc 1:normal 3: surface current model
     type_BC = 1
     # coefficients for surface current j_0: core-crsut, j_1: crust-ocean
@@ -170,7 +170,7 @@ function main()
             δρ_f = Perturb_star.δρ_fluid_star(r_c, r_o, r_g, ρ, δϕ_f, cs2, 
                 fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc, nr)
             δρ_r = Spline1D(r_g, δρ_f)
-            δϕ_f, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
+            δϕ_f, dδϕ_dr = Poisson_eq.Poisson_BVP0(δρ_r, ℓ, r_min, R, r_g, nr, guess)
             dδϕ_dr_n = dδϕ_dr[1]
             diff_dδϕ_dr = abs(dδϕ_dr_n - dδϕ_dr_o) / abs(dδϕ_dr_n)
             if(ite > 3)
@@ -194,7 +194,7 @@ function main()
         guess2 = [0.0, 0.0, 0.0]
         init2_o = [0.0, 0.0, 0.0]
         δρ_o = zeros(Float64, nr)
-        δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
+        δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP0(δρ_r, ℓ, r_min, R, r_g, nr, guess)
         for ite=1:max_ite2
             println("ite = ", ite)
 
@@ -205,13 +205,13 @@ function main()
             δϕ_r     = Spline1D(r_g, δϕ)
             dδϕ_dr_r = Spline1D(r_g, dδϕ_dr)
 
-            T1, T2, ξr, ξt, init2 = Perturb_star.cal_ξ_T_BVP!(ρ_r, dρ_dr_r, d2ρ_dr2_r, cs2_r, dcs2_dr_r, 
+            T1, T2, ξr, ξt, init2 = Perturb_star.cal_ξ_T_BVP0!(ρ_r, dρ_dr_r, d2ρ_dr2_r, cs2_r, dcs2_dr_r, 
                 μ_r, dμ_dr_r, δϕ_r, dδϕ_dr_r, 
                 fr_co, fr_cr, fr_oc, ft_co, ft_cr, ft_oc, 
                 m_rr_co, m_rr_cr, m_rr_oc, m_rth_co, m_rth_cr, m_rth_oc,
                 β2, r_c, r_o, r_g, nr, guess2, type_BC)
 
-            δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP(δρ_r, ℓ, r_min, R, r_g, nr, guess)
+            δϕ, dδϕ_dr = Poisson_eq.Poisson_BVP0(δρ_r, ℓ, r_min, R, r_g, nr, guess)
             dδϕ_dr_n = dδϕ_dr[1]
             diff_dδϕ_dr = abs(dδϕ_dr_n - dδϕ_dr_o) / abs(dδϕ_dr_n)
             if(ite > 1)
